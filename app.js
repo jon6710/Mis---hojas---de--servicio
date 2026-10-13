@@ -1,6 +1,6 @@
-const SUPRABASE_URL= 'https://hargvujvwhwmvodlbarh.supabase.co';
+const SUPABASE_URL= 'https://hargvujvwhwmvodlbarh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_alaHLd7sOSjAWRzKWLjRHg_-igTTOx8';
-const SupabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const $=s=>document.querySelector(s), app=$('#app');
+const supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const $=s=>document.querySelector(s), app=$('#app');
 const DB={get(k,d=[]){try{return JSON.parse(localStoragetItem('mhs_'+k))??d}catch{return d}},set(k,v){localStorage.setItem('mhs_'+k,JSON.stringify(v))}};
 let current=null,openBlock=null;
 const types={autoclave:'AUTOCLAVE',insitu:'MADERA IN SITU',termitas:'TERMITAS',ddd:'DDD'};
