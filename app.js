@@ -1,3 +1,5 @@
+const SUPRABASE_URL= 'https://hargvujvwhwmvodlbarh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_alaHLd7sOSjAWRzKWLjRHg_-igTTOx8';
 const $=s=>document.querySelector(s), app=$('#app');
 const DB={get(k,d=[]){try{return JSON.parse(localStorage.getItem('mhs_'+k))??d}catch{return d}},set(k,v){localStorage.setItem('mhs_'+k,JSON.stringify(v))}};
 let current=null,openBlock=null;
