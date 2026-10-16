@@ -186,3 +186,80 @@ async function prepareAutoclavePdfPhotos(s){if(s.type!=='autoclave')return;let a
 async function prepareTermitePdfPlan(s){if(s.type!=='termitas')return;let a=s.data?.planAttachments||[];for(let x of a){x.pdfData='';if(x.id&&(x.type||'').startsWith('image')){try{let f=await getFile(x.id);x.pdfData=f?await fileToDataURL(f):''}catch(e){console.warn('No se pudo cargar el plano de termitas para el PDF',e);x.pdfData=''}}}}
 async function prepareTermitePdfPhotos(s){if(s.type!=='termitas')return;let a=s.data?.photoAttachments||s.attachments||[];for(let x of a){x.pdfData='';if(x.id){try{let f=await getFile(x.id);if(f&&((f.type||x.type||'').startsWith('image')))x.pdfData=await fileToDataURL(f)}catch(e){console.warn('No se pudo cargar la fotografía de termitas para el PDF',e);x.pdfData=''}}}}
 async function printSheet(){if(!saveSheet())return;await prepareFurniturePdfPhotos(current);await prepareInsituPdfPhotos(current);await prepareAutoclavePdfPhotos(current);await prepareTermitePdfPlan(current);await prepareTermitePdfPhotos(current);openPdfPreview(current)}
+
+// ===== NUBE SUPABASE: ACCESO Y SINCRONIZACION =====
+let cloudUser=null, cloudReady=false, cloudApplying=false;
+const CLOUD_KEYS=['sheets','clients','products','config'];
+
+function cloudLoginView(message=''){
+  app.innerHTML=`<div class="home" style="max-width:520px;margin:40px auto"><div class="card" style="padding:24px"><h1>Acceso a Mis Hojas de Servicio</h1><p class="notice">Inicia sesión para sincronizar las hojas entre tus dispositivos.</p>${message?`<p class="notice">${esc(message)}</p>`:''}<div class="field"><label>Correo electrónico</label><input id="cloudEmail" type="email" autocomplete="username"></div><div class="field"><label>Contraseña</label><input id="cloudPassword" type="password" autocomplete="current-password"></div><div class="actions"><button onclick="cloudSignIn()">ENTRAR</button></div></div></div>`;
+}
+
+async function cloudSignIn(){
+  let email=($('#cloudEmail')?.value||'').trim(),password=$('#cloudPassword')?.value||'';
+  if(!email||!password){alert('Introduce correo electrónico y contraseña.');return}
+  let {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+  if(error){alert('No se ha podido iniciar sesión: '+error.message);return}
+  cloudUser=data.user;await cloudStart();
+}
+
+async function cloudSignOut(){
+  await supabaseClient.auth.signOut();cloudUser=null;cloudReady=false;cloudLoginView('Sesión cerrada.');
+}
+
+async function cloudStart(){
+  if(!cloudUser){cloudLoginView();return}
+  try{
+    let {data,error}=await supabaseClient.from('app_data').select('id,data_type,record_id,data').eq('user_id',cloudUser.id);
+    if(error)throw error;
+    cloudApplying=true;
+    if(data&&data.length){
+      for(let row of data){if(CLOUD_KEYS.includes(row.data_type)&&row.record_id==='all')localStorage.setItem('mhs_'+row.data_type,JSON.stringify(row.data));}
+    }else{
+      for(let k of CLOUD_KEYS){let v=DB.get(k,k==='config'?{}:[]);await cloudSaveKey(k,v)}
+    }
+    cloudApplying=false;cloudReady=true;home();
+  }catch(e){cloudApplying=false;cloudReady=false;console.error(e);alert('No se ha podido conectar con la nube. Tus datos locales no se han borrado.');home()}
+}
+
+async function cloudSaveKey(k,v){
+  if(!cloudUser||cloudApplying||!CLOUD_KEYS.includes(k))return;
+  try{
+    let q=await supabaseClient.from('app_data').select('id').eq('user_id',cloudUser.id).eq('data_type',k).eq('record_id','all').limit(1);
+    if(q.error)throw q.error;
+    if(q.data&&q.data[0]){
+      let r=await supabaseClient.from('app_data').update({data:v}).eq('id',q.data[0].id);if(r.error)throw r.error;
+    }else{
+      let r=await supabaseClient.from('app_data').insert({user_id:cloudUser.id,data_type:k,record_id:'all',data:v});if(r.error)throw r.error;
+    }
+  }catch(e){console.error('Error de sincronización',k,e)}
+}
+
+const _localSet=DB.set.bind(DB);
+DB.set=function(k,v){_localSet(k,v);if(cloudReady)cloudSaveKey(k,v);};
+
+const _localPutFile=putFile,_localGetFile=getFile,_localDelFile=delFile;
+putFile=async function(id,file){
+  await _localPutFile(id,file);
+  if(cloudUser){let r=await supabaseClient.storage.from('adjuntos').upload(`${cloudUser.id}/${id}`,file,{upsert:true,contentType:file.type||undefined});if(r.error)console.error('No se pudo subir el adjunto',r.error)}
+};
+getFile=async function(id){
+  let f=await _localGetFile(id);if(f||!cloudUser)return f;
+  let r=await supabaseClient.storage.from('adjuntos').download(`${cloudUser.id}/${id}`);if(r.error){console.error('No se pudo descargar el adjunto',r.error);return undefined}
+  let blob=r.data;try{await _localPutFile(id,blob)}catch(e){}return blob;
+};
+delFile=async function(id){
+  await _localDelFile(id);if(cloudUser){let r=await supabaseClient.storage.from('adjuntos').remove([`${cloudUser.id}/${id}`]);if(r.error)console.error('No se pudo borrar el adjunto en nube',r.error)}
+};
+
+const _homeLocal=home;
+home=function(){
+  if(!cloudUser){cloudLoginView();return}
+  _homeLocal();
+  let host=document.querySelector('.home');
+  if(host){let bar=document.createElement('div');bar.style='text-align:right;margin-bottom:10px';bar.innerHTML=`<span class="notice">☁ Sincronización activa</span> <button class="secondary" onclick="cloudSignOut()">CERRAR SESIÓN</button>`;host.prepend(bar)}
+};
+
+(async function initCloud(){
+  let {data}=await supabaseClient.auth.getSession();cloudUser=data?.session?.user||null;if(cloudUser)await cloudStart();else cloudLoginView();
+})();
