@@ -189,29 +189,45 @@ async function printSheet(){if(!saveSheet())return;await prepareFurniturePdfPhot
 
 
 /* ===== ACCESO CON SUPABASE ===== */
-function loginView(message=''){
+function loginView(message='', email=''){
   current=null; openBlock=null;
-  app.innerHTML=`<div class="chooser"><div class="card" style="max-width:520px;margin:40px auto;padding:24px"><h1>Acceso</h1><p>Inicia sesión para entrar en Mis Hojas de Servicio.</p><div class="formgrid"><div class="field full"><label>Correo electrónico</label><input id="loginEmail" type="email" autocomplete="username"></div><div class="field full"><label>Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginApp()"></div></div>${message?`<div class="notice" style="margin-top:12px">${esc(message)}</div>`:''}<p><button type="button" onclick="loginApp()">INICIAR SESIÓN</button></p></div></div>`;
+  app.innerHTML=`<div class="chooser"><div class="card" style="max-width:520px;margin:40px auto;padding:24px"><h1>Acceso</h1><p>Inicia sesión para entrar en Mis Hojas de Servicio.</p><div class="formgrid"><div class="field full"><label>Correo electrónico</label><input id="loginEmail" type="email" autocomplete="username" value="${esc(email)}"></div><div class="field full"><label>Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginApp()"></div></div>${message?`<div class="notice" role="alert" style="margin-top:12px">${esc(message)}</div>`:''}<p><button type="button" onclick="loginApp()">INICIAR SESIÓN</button></p></div></div>`;
+}
+function loginErrorMessage(error){
+  const msg=String(error?.message||'').toLowerCase();
+  if(msg.includes('invalid login credentials')) return 'El correo o la contraseña no son correctos. Comprueba los datos e inténtalo de nuevo.';
+  if(msg.includes('email not confirmed')) return 'El correo aún no está confirmado en Supabase. Revisa la confirmación de la cuenta.';
+  if(msg.includes('too many requests')||msg.includes('rate limit')) return 'Se han realizado demasiados intentos. Espera unos minutos antes de volver a intentarlo.';
+  if(msg.includes('failed to fetch')||msg.includes('network')||msg.includes('fetch')) return 'No se ha podido conectar con Supabase. Comprueba la conexión a Internet e inténtalo de nuevo.';
+  if(msg.includes('user not found')) return 'No se encuentra una cuenta con ese correo. Comprueba que el usuario esté creado en Supabase.';
+  console.error('Error de inicio de sesión de Supabase:',error);
+  return 'Supabase ha rechazado el inicio de sesión. Comprueba el usuario, la contraseña y la configuración del proveedor Email.';
 }
 async function loginApp(){
   const email=$('#loginEmail')?.value.trim()||'';
   const password=$('#loginPassword')?.value||'';
-  if(!email||!password){loginView('Escribe el correo y la contraseña.');return}
-  const btn=document.querySelector('.chooser button'); if(btn){btn.disabled=true;btn.textContent='ENTRANDO…'}
+  if(!email||!password){loginView('Escribe el correo y la contraseña.',email);return}
+  const btn=document.querySelector('.chooser button');
+  if(btn){btn.disabled=true;btn.textContent='ENTRANDO…'}
   try{
-    const {error}=await supabaseClient.auth.signInWithPassword({email,password});
-    if(error){loginView('No se ha podido iniciar sesión. Revisa el correo y la contraseña.');return}
+    const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+    if(error){loginView(loginErrorMessage(error),email);return}
+    if(!data?.session){loginView('Supabase no ha devuelto una sesión válida. Comprueba el usuario y vuelve a intentarlo.',email);return}
     home();
-  }catch(e){console.error(e);loginView('No se ha podido conectar con Supabase.');}
+  }catch(e){
+    console.error('No se pudo completar el inicio de sesión:',e);
+    loginView(loginErrorMessage(e),email);
+  }
 }
 async function startApp(){
   try{
     const {data,error}=await supabaseClient.auth.getSession();
     if(error)throw error;
     if(data?.session)home(); else loginView();
-  }catch(e){console.error(e);loginView('No se ha podido comprobar la sesión.');}
+  }catch(e){console.error('No se pudo comprobar la sesión de Supabase:',e);loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');}
 }
 async function logoutApp(){
-  await supabaseClient.auth.signOut();
+  const {error}=await supabaseClient.auth.signOut();
+  if(error){console.error('No se pudo cerrar la sesión:',error);alert('No se ha podido cerrar la sesión.');return}
   loginView();
 }
