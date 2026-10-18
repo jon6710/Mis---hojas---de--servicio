@@ -1,6 +1,58 @@
 const SUPABASE_URL='https://hargvujvvhwmvodlbarh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_alaHLd7sOSjAWRzKWLjRHg_-igTTOx8';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const $=s=>document.querySelector(s), app=$('#app');
+const supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+async function syncSheetsWithSupabase(){
+  const {data:{user}}=await supabaseClient.auth.getUser();
+  if(!user)return;
+
+  const localSheets=DB.get('sheets')||[];
+
+  const {data:remoteRows,error}=await supabaseClient
+    .from('service_sheets')
+    .select('id,data,updated_at');
+
+  if(error){
+    console.error('Error cargando hojas desde Supabase:',error);
+    return;
+  }
+
+  if((remoteRows||[]).length===0 && localSheets.length){
+    const rows=localSheets.map(sheet=>({
+      id:sheet.id,
+      user_id:user.id,
+      data:sheet,
+      updated_at:new Date().toISOString()
+    }));
+
+    const {error:uploadError}=await supabaseClient
+      .from('service_sheets')
+      .upsert(rows);
+
+    if(uploadError){
+      console.error('Error subiendo hojas a Supabase:',uploadError);
+      return;
+    }
+  }else{
+    const remoteSheets=(remoteRows||[]).map(row=>row.data);
+    DB.set('sheets',remoteSheets);
+  }
+}
+
+async function saveSheetToSupabase(sheet){
+  const {data:{user}}=await supabaseClient.auth.getUser();
+  if(!user)return;
+
+  const {error}=await supabaseClient
+    .from('service_sheets')
+    .upsert({
+      id:sheet.id,
+      user_id:user.id,
+      data:sheet,
+      updated_at:new Date().toISOString()
+    });
+
+  if(error)console.error('Error guardando hoja en Supabase:',error);
+} $=s=>document.querySelector(s), app=$('#app');
 const DB={get(k,d=[]){try{return JSON.parse(localStorage.getItem('mhs_'+k))??d}catch{return d}},set(k,v){localStorage.setItem('mhs_'+k,JSON.stringify(v))}};
 let current=null,openBlock=null;
 const types={autoclave:'AUTOCLAVE',insitu:'MADERA IN SITU',termitas:'TERMITAS',ddd:'DDD',mobiliario:'MOBILIARIO'};
@@ -33,7 +85,7 @@ function dddForm(d){return acc('actions','ACTUACIONES',`<label>Tipo de actuació
 function safety(d){return `<div class="formgrid">${field('safetyQty','Cantidad',d.safetyQty||'','number')}<div class="field"><label>Unidad</label><select id="safetyUnit"><option>Horas</option><option>Días</option></select></div><label class="pill full"><input type="checkbox" id="noSafety"> SIN PLAZO DE SEGURIDAD</label><div class="notice full">Si se selecciona “Sin plazo”: Producto biocida. No tocar hasta su completo secado.</div></div>`}
 function attachments(photos=false){return `<div class="actions"><button onclick="document.getElementById('attach').click()">📷 ${photos?'HACER / ELEGIR FOTO':'AÑADIR ARCHIVO'}</button><input id="attach" class="hidden" type="file" ${photos?'accept="image/*" capture="environment"':'accept="image/*,.pdf"'} multiple></div><p class="notice">Los adjuntos quedarán asociados a la hoja. En esta primera construcción ya está preparada la interfaz; el almacenamiento de archivos se completará en la siguiente iteración.</p>`}
 function collect(){current.number=$('#num')?.value.trim()||'';current.date=$('#date')?.value||'';current.start=$('#start')?.value||'';current.end=$('#end')?.value||'';current.client={name:$('#cname')?.value||'',contact:$('#contact')?.value||'',address:$('#address')?.value||'',phone:$('#phone')?.value||'',email:$('#email')?.value||''};current.data.observations=$('#observations')?.value||'';document.querySelectorAll('input,textarea,select').forEach(el=>{if(el.id && !['num','date','start','end','cname','contact','address','phone','email','observations'].includes(el.id))current.data[el.id]=el.type==='checkbox'?el.checked:el.value});['treat','dddAction','pest','method'].forEach(n=>current.data[n]=[...document.querySelectorAll(`[name="${n}"]:checked`)].map(x=>x.value));['location','purpose','termAction','termSystem','result'].forEach(n=>{let x=document.querySelector(`[name="${n}"]:checked`);if(x)current.data[n]=x.value})}
-function saveSheet(){collect();if(!current.number){alert('Introduce el N.º de hoja.');return false}let all=DB.get('sheets'),dup=all.find(x=>x.number.toLowerCase()===current.number.toLowerCase()&&x.id!==current.id);if(dup){alert('Este N.º de hoja ya existe. Introduce otro número.');return false}if(current.status==='PENDIENTE')current.status='EN PROCESO';current.modified=new Date().toISOString().slice(0,10);let i=all.findIndex(x=>x.id===current.id);if(i<0)all.unshift(current);else all[i]=current;DB.set('sheets',all);$('#saveMsg').textContent='✓ Guardado automáticamente';setTimeout(()=>$('#saveMsg').textContent='',2200);return true}
+function saveSheet(){collect();if(!current.number){alert('Introduce el N.º de hoja.');return false}let all=DB.get('sheets'),dup=all.find(x=>x.number.toLowerCase()===current.number.toLowerCase()&&x.id!==current.id);if(dup){alert('Este N.º de hoja ya existe. Introduce otro número.');return false}if(current.status==='PENDIENTE')current.status='EN PROCESO';current.modified=new Date().toISOString().slice(0,10);let i=all.findIndex(x=>x.id===current.id);if(i<0)all.unshift(current);else all[i]=current;DB.set('sheets',all);saveSheetToSupabase(current);('#saveMsg').textContent='✓ Guardado automáticamente';setTimeout(()=>$('#saveMsg').textContent='',2200);return true}
 function finalizeSheet(){collect();let miss=[];if(!current.number)miss.push('N.º de hoja');if(!current.date)miss.push('Fecha');let c=current.client;if(!c.name||!c.address||!c.contact||!c.phone||!c.email)miss.push('Datos completos del cliente');if(current.products.length<1 && ['termitas','ddd'].includes(current.type))miss.push('Al menos un producto');if(current.type==='ddd'){if(!(current.data.dddAction||[]).length)miss.push('Tipo de actuación');if(!(current.data.pest||[]).length)miss.push('Plaga/agente');if(!(current.data.method||[]).length)miss.push('Método de aplicación');if(!current.data.dddZones)miss.push('Zonas/áreas tratadas')}if(current.type==='termitas'){if(!current.data.termAction)miss.push('Tipo de actuación');if(!current.data.termSystem)miss.push('Sistema de tratamiento');if(!current.data.termZones)miss.push('Zonas tratadas/revisadas');if(!current.data.installDate)miss.push('Fecha de instalación inicial');if(current.data.termSystem==='Sistema de cebos'&&!(current.data.stations||[]).length)miss.push('Al menos una estación ES o EP')}if(miss.length){alert(`Faltan ${miss.length} campos/requisitos:\n• `+miss.join('\n• '));return}if(confirm('¿Quieres finalizar esta hoja de servicio? La hoja seguirá pudiendo editarse posteriormente.')){current.status='FINALIZADA';saveSheet();editSheet();alert('Hoja finalizada correctamente.')}}
 function duplicateSheet(){let n=blank(current.type);n.client={...current.client};current=n;editSheet()}
 function sheetList(){let a=DB.get('sheets');app.innerHTML=`<div class="list"><div class="listhead"><button onclick="showView('new')">＋ NUEVA HOJA</button><input id="search" placeholder="Buscar por N.º, cliente o fecha" oninput="renderSheetRows()"><button class="secondary" onclick="home()">← INICIO</button></div><div class="card"><table><thead><tr><th>N.º hoja</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Estado</th></tr></thead><tbody id="sheetRows"></tbody></table></div></div>`;renderSheetRows()}
@@ -213,8 +265,7 @@ async function loginApp(){
     const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
     if(error){loginView(loginErrorMessage(error),email);return}
     if(!data?.session){loginView('Supabase no ha devuelto una sesión válida. Comprueba el usuario y vuelve a intentarlo.',email);return}
-    home();
-  }catch(e){
+    await syncSheetsWithSupabase();home();  }catch(e){
     console.error('No se pudo completar el inicio de sesión:',e);
     loginView(loginErrorMessage(e),email);
   }
@@ -223,8 +274,7 @@ async function startApp(){
   try{
     const {data,error}=await supabaseClient.auth.getSession();
     if(error)throw error;
-    if(data?.session)home(); else loginView();
-  }catch(e){console.error('No se pudo comprobar la sesión de Supabase:',e);loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');}
+    if(data?.session){await syncSheetsWithSupabase();home();}else loginView();  }catch(e){console.error('No se pudo comprobar la sesión de Supabase:',e);loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');}
 }
 async function logoutApp(){
   const {error}=await supabaseClient.auth.signOut();
