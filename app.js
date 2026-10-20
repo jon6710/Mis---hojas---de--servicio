@@ -261,7 +261,29 @@ function furnitureRow(r,i){let photo=r.photo;return `<tr class="furniture-row" d
 function readFurnitureRows(){return [...document.querySelectorAll('.furniture-row')].map((tr,i)=>{let old=(current.data.furnitureRows||[])[i]||{},o={...old};tr.querySelectorAll('[data-furn]').forEach(x=>o[x.dataset.furn]=x.value.trim());return o})}
 function addFurnitureRow(){snapshotForm();current.data.furnitureRows=current.data.furnitureRows||[];while(current.data.furnitureRows.length<5)current.data.furnitureRows.push({});current.data.furnitureRows.push({});editSheet()}
 function deleteFurnitureRow(i){if(!confirm('¿Seguro que quieres eliminar este artículo?'))return;snapshotForm();let r=current.data.furnitureRows?.[i];if(r?.photo?.id)delFile(r.photo.id);if(i>=5)current.data.furnitureRows.splice(i,1);editSheet()}
-async function setFurniturePhoto(i,files){let f=files?.[0];if(!f)return;snapshotForm();let rows=current.data.furnitureRows=current.data.furnitureRows||[];while(rows.length<=i)rows.push({});if(rows[i].photo?.id)await delFile(rows[i].photo.id);let id=crypto.randomUUID(),ext=(f.name.split('.').pop()||'jpg').toLowerCase(),base=(current.number||'Hoja').replace(/[^A-Za-z0-9_-]/g,'_'),name=`${base}_Mobiliario_${i+1}.${ext}`;await putFile(id,f);rows[i].photo={id,name,type:f.type||'',date:new Date().toLocaleDateString('es-ES')};saveSheet(true);editSheet()}
+async function setFurniturePhoto(i,files){
+  const f=files?.[0];
+  if(!f||!current)return;
+  snapshotForm();
+  const rows=current.data.furnitureRows=current.data.furnitureRows||[];
+  while(rows.length<=i)rows.push({});
+  const oldPhoto=rows[i].photo;
+  const id=crypto.randomUUID();
+  const ext=(f.name.split('.').pop()||'jpg').toLowerCase();
+  const base=(current.number||'Hoja').replace(/[^A-Za-z0-9_-]/g,'_');
+  const name=`${base}_Mobiliario_${i+1}.${ext}`;
+  try{
+    await putFile(id,f);
+    rows[i].photo={id,name,type:f.type||'',date:new Date().toLocaleDateString('es-ES')};
+    saveSheet(true);
+    editSheet();
+  }catch(e){
+    console.error('No se pudo guardar la foto de mobiliario:',e);
+    alert(`No se ha podido guardar la fotografía.\n\nError: ${e?.message||e}\n\nComprueba la conexión, la sesión y los permisos de Storage en Supabase. La foto no se ha añadido a la hoja.`);
+    if(oldPhoto)rows[i].photo=oldPhoto;
+    else delete rows[i].photo;
+  }
+}
 async function deleteFurniturePhoto(i){if(!confirm('¿Seguro que quieres eliminar esta fotografía?'))return;snapshotForm();let p=current.data.furnitureRows?.[i]?.photo;if(p?.id)await delFile(p.id);if(current.data.furnitureRows?.[i])delete current.data.furnitureRows[i].photo;saveSheet(true);editSheet()}
 
 function furnitureForm(d){return acc('furniture','DATOS DEL MOBILIARIO',`<div class="field"><label>Acabado *</label>${radio('furnitureFinish',['Barnizado','Sin barnizar'],d.furnitureFinish||'')}</div>${furnitureTable(d)}<div class="notice"><b>AVISO:</b> En mobiliario barnizado o con otros acabados superficiales (pinturas, lacas, etc.), la penetración del producto protector queda limitada principalmente a grietas, orificios producidos por la plaga y zonas de madera sin acabado.</div>`)+acc('furnitureTreatment','TRATAMIENTO',`<div class="field"><label>Método de tratamiento *</label>${radio('furnitureMethod',['Autoclave','Aplicación gel'],d.furnitureMethod||'')}</div>`)+acc('product','PRODUCTO PROTECTOR',productEditor('mobiliario'))}
