@@ -171,8 +171,58 @@ function removeProduct(i){snapshotForm();current.products.splice(i,1);editSheet(
 function useProduct(id){snapshotForm();let p=DB.get('products').find(x=>x.id===id);if(!p)return;if(current.type==='autoclave')current.products=[{...p}];else if(!current.products.some(x=>x.id===id))current.products.push({...p});closeModal();editSheet()}
 function attachmentSection(key,title,photosOnly=false){let a=(key==='attachments'?current.attachments:(current.data[key]||[]));let accept=photosOnly?'image/*':'image/*,.pdf';return `<div class="actions"><button type="button" onclick="document.getElementById('file_${key}').click()">${photosOnly?'📷 HACER / ELEGIR FOTO':'📎 HACER FOTO / ELEGIR FOTO / AÑADIR PDF'}</button><input id="file_${key}" class="hidden" type="file" accept="${accept}" ${photosOnly?'capture="environment"':''} multiple onchange="addAttachments('${key}',this.files)"></div><div>${a.map(x=>`<div class="attachrow"><b>${esc(x.name)}</b> — ${esc(x.date||'')} <span class="spacer"></span><button class="secondary" type="button" onclick="openAttachment('${x.id}')">VER</button><button class="secondary" type="button" onclick="shareAttachment('${x.id}')">COMPARTIR</button><button class="danger" type="button" onclick="deleteAttachment('${key}','${x.id}')">ELIMINAR</button></div>`).join('')||'<div class="notice">Sin archivos adjuntos.</div>'}</div>`}
 function fileDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open('mhs_files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+async function putFile(id,file){
+  const db=await fileDB();
+  await new Promise((resolve,reject)=>{
+    const tx=db.transaction('files','readwrite');
+    tx.objectStore('files').put(file,id);
+    tx.oncomplete=resolve;
+    tx.onerror=()=>reject(tx.error);
+    tx.onabort=()=>reject(tx.error||new Error('Se canceló el guardado local del adjunto.'));
+  });
+
+  const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+  if(authError) throw authError;
+  if(!user) throw new Error('No hay una sesión iniciada en Supabase.');
+
+  const path=`${user.id}/${id}`;
+  const {error}=await supabaseClient.storage
+    .from('adjuntos')
+    .upload(path,file,{
+      upsert:true,
+      contentType:file.type||'application/octet-stream'
+    });
+
+  if(error){
+    console.error('Error subiendo adjunto a Supabase Storage:',error);
+    throw error;
+  }
+  return true;
+}
 async function getFile(id){let db=await fileDB();let local=await new Promise((res,rej)=>{let r=db.transaction('files','readonly').objectStore('files').get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});if(local)return local;const{data:{user}}=await supabaseClient.auth.getUser();if(!user)return null;const{data,error}=await supabaseClient.storage.from('adjuntos').download(user.id+'/'+id);if(error){console.error('Error descargando adjunto de Supabase:',error);return null}let file=new File([data],id,{type:data.type||'application/octet-stream'});await new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').put(file,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});return file}async function delFile(id){let db=await fileDB();return new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function addAttachments(key,files){snapshotForm();let list=key==='attachments'?current.attachments:(current.data[key]=current.data[key]||[]);for(let f of [...files]){let id=crypto.randomUUID(),seq=(current.data.fileSeq||0)+1;current.data.fileSeq=seq;let ext=(f.name.split('.').pop()||'bin').toLowerCase(),base=(current.number||'Hoja').replace(/[^A-Za-z0-9_-]/g,'_');let name=`${base}_${key}_${seq}.${ext}`;await putFile(id,f);list.push({id,name,type:f.type||'',date:new Date().toLocaleDateString('es-ES')})}saveSheet(true);editSheet()}
+async function addAttachments(key,files){
+  if(!current||!files||!files.length)return;
+  snapshotForm();
+  const list=key==='attachments'?current.attachments:(current.data[key]=current.data[key]||[]);
+  let added=0;
+  for(const f of [...files]){
+    const id=crypto.randomUUID();
+    const seq=(current.data.fileSeq||0)+1;
+    const ext=(f.name.split('.').pop()||'bin').toLowerCase();
+    const base=(current.number||'Hoja').replace(/[^A-Za-z0-9_-]/g,'_');
+    const name=`${base}_${key}_${seq}.${ext}`;
+    try{
+      await putFile(id,f);
+      current.data.fileSeq=seq;
+      list.push({id,name,type:f.type||'',date:new Date().toLocaleDateString('es-ES')});
+      added++;
+    }catch(e){
+      console.error('No se pudo guardar el adjunto:',e);
+      alert(`No se pudo subir "${f.name}" a Supabase. ${e?.message||'Comprueba la conexión y los permisos del bucket adjuntos.'}`);
+    }
+  }
+  if(added){saveSheet(true);editSheet();}
+}
 async function openAttachment(id){let f=await getFile(id);if(!f)return alert('No se encuentra el archivo.');let u=URL.createObjectURL(f);window.open(u,'_blank');setTimeout(()=>URL.revokeObjectURL(u),60000)}
 async function shareAttachment(id){let f=await getFile(id);if(!f)return alert('No se encuentra el archivo.');try{if(navigator.share&&navigator.canShare?.({files:[f]}))await navigator.share({files:[f],title:'Adjunto hoja de servicio'});else openAttachment(id)}catch(e){}}
 async function deleteAttachment(key,id){if(!confirm('¿Seguro que quieres eliminar este archivo?'))return;snapshotForm();let list=key==='attachments'?current.attachments:current.data[key]||[];let i=list.findIndex(x=>x.id===id);if(i>=0)list.splice(i,1);await delFile(id);saveSheet(true);editSheet()}
