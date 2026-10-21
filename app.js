@@ -268,8 +268,7 @@ async function setFurniturePhoto(i,source){
   if(!f){console.warn('No se recibió ningún archivo para la fotografía de mobiliario.');alert('La tablet no ha entregado ninguna fotografía a la aplicación. Prueba de nuevo con ELEGIR FOTO. Si vuelve a ocurrir, no cambies nada más y anota este mensaje.');return;}
   if(!current){alert('Abre una hoja de servicio antes de añadir una fotografía.');return;}
   let rows=null,oldPhoto=null;
-  try{
-    snapshotForm();
+  try{clearTimeout(window._as);    snapshotForm();
     rows=current.data.furnitureRows=current.data.furnitureRows||[];
     while(rows.length<=i)rows.push({});
     oldPhoto=rows[i].photo;
