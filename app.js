@@ -282,7 +282,9 @@ async function setFurniturePhoto(i,source){
     await putFile(id,f);
     rows[i].photo={id,name,type:f.type||'',date:new Date().toLocaleDateString('es-ES')};
     const saved=saveSheet(true);
-    if(saved===false)throw new Error('El archivo se ha subido, pero la hoja no se ha podido guardar. Comprueba el número de hoja.');
+if(saved===false) throw new Error('El archivo se ha subido, pero la hoja no se ha podido guardar.');
+await saveSheetToSupabase(current);
+
     editSheet();
   }catch(e){
     console.error('No se pudo guardar la foto de mobiliario:',e);
