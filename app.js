@@ -257,31 +257,41 @@ function specific(t,d){if(t==='autoclave')return autoForm(d);if(t==='insitu')ret
 
 function furnitureRows(d){let rows=d.furnitureRows||Array.from({length:5},()=>({}));while(rows.length<5)rows.push({});return rows}
 function furnitureTable(d){let rows=furnitureRows(d);return `<div class="tablewrap"><table><thead><tr><th>Descripción</th><th>Unidades</th><th>Largo (mm)</th><th>Alto (mm)</th><th>Ancho (mm)</th><th>Fotografía</th><th></th></tr></thead><tbody>${rows.map((r,i)=>furnitureRow(r,i)).join('')}</tbody></table></div><div class="rowactions"><button type="button" onclick="addFurnitureRow()">＋ AÑADIR LÍNEA</button></div>`}
-function furnitureRow(r,i){let photo=r.photo;return `<tr class="furniture-row" data-furniture-row="${i}"><td><input data-furn="description" value="${esc(r.description||'')}" placeholder="Ej.: Armario"></td><td><input class="smallinput" data-furn="units" type="number" min="1" step="1" value="${esc(r.units||'')}"></td><td><input class="smallinput" data-furn="length" type="number" min="0" step="any" value="${esc(r.length||'')}"></td><td><input class="smallinput" data-furn="height" type="number" min="0" step="any" value="${esc(r.height||'')}"></td><td><input class="smallinput" data-furn="width" type="number" min="0" step="any" value="${esc(r.width||'')}"></td><td><div>${photo?`<b>${esc(photo.name)}</b><br><button class="secondary" type="button" onclick="openAttachment('${photo.id}')">VER</button> <button class="danger" type="button" onclick="deleteFurniturePhoto(${i})">ELIMINAR</button>`:`<button type="button" onclick="document.getElementById('furnCam_${i}').click()">📷 HACER FOTO</button> <button class="secondary" type="button" onclick="document.getElementById('furnPick_${i}').click()">🖼 ELEGIR FOTO</button>`}<input id="furnCam_${i}" class="hidden" type="file" accept="image/*" capture="environment" onchange="setFurniturePhoto(${i},this.files)"><input id="furnPick_${i}" class="hidden" type="file" accept="image/*" onchange="setFurniturePhoto(${i},this.files)"></div></td><td>${i>=5?`<button class="danger" type="button" onclick="deleteFurnitureRow(${i})">✕</button>`:''}</td></tr>`}
+function furnitureRow(r,i){let photo=r.photo;return `<tr class="furniture-row" data-furniture-row="${i}"><td><input data-furn="description" value="${esc(r.description||'')}" placeholder="Ej.: Armario"></td><td><input class="smallinput" data-furn="units" type="number" min="1" step="1" value="${esc(r.units||'')}"></td><td><input class="smallinput" data-furn="length" type="number" min="0" step="any" value="${esc(r.length||'')}"></td><td><input class="smallinput" data-furn="height" type="number" min="0" step="any" value="${esc(r.height||'')}"></td><td><input class="smallinput" data-furn="width" type="number" min="0" step="any" value="${esc(r.width||'')}"></td><td><div>${photo?`<b>${esc(photo.name)}</b><br><button class="secondary" type="button" onclick="openAttachment('${photo.id}')">VER</button> <button class="danger" type="button" onclick="deleteFurniturePhoto(${i})">ELIMINAR</button>`:`<button type="button" onclick="document.getElementById('furnCam_${i}').click()">📷 HACER FOTO</button> <button class="secondary" type="button" onclick="document.getElementById('furnPick_${i}').click()">🖼 ELEGIR FOTO</button>`}<input id="furnCam_${i}" class="hidden" type="file" accept="image/*" capture="environment" onchange="setFurniturePhoto(${i},this)"><input id="furnPick_${i}" class="hidden" type="file" accept="image/*" onchange="setFurniturePhoto(${i},this)"></div></td><td>${i>=5?`<button class="danger" type="button" onclick="deleteFurnitureRow(${i})">✕</button>`:''}</td></tr>`}
 function readFurnitureRows(){return [...document.querySelectorAll('.furniture-row')].map((tr,i)=>{let old=(current.data.furnitureRows||[])[i]||{},o={...old};tr.querySelectorAll('[data-furn]').forEach(x=>o[x.dataset.furn]=x.value.trim());return o})}
 function addFurnitureRow(){snapshotForm();current.data.furnitureRows=current.data.furnitureRows||[];while(current.data.furnitureRows.length<5)current.data.furnitureRows.push({});current.data.furnitureRows.push({});editSheet()}
 function deleteFurnitureRow(i){if(!confirm('¿Seguro que quieres eliminar este artículo?'))return;snapshotForm();let r=current.data.furnitureRows?.[i];if(r?.photo?.id)delFile(r.photo.id);if(i>=5)current.data.furnitureRows.splice(i,1);editSheet()}
-async function setFurniturePhoto(i,files){
-  const f=files?.[0];
-  if(!f||!current)return;
-  snapshotForm();
-  const rows=current.data.furnitureRows=current.data.furnitureRows||[];
-  while(rows.length<=i)rows.push({});
-  const oldPhoto=rows[i].photo;
-  const id=crypto.randomUUID();
-  const ext=(f.name.split('.').pop()||'jpg').toLowerCase();
-  const base=(current.number||'Hoja').replace(/[^A-Za-z0-9_-]/g,'_');
-  const name=`${base}_Mobiliario_${i+1}.${ext}`;
+async function setFurniturePhoto(i,source){
+  // Acepta tanto el input de archivo como una FileList, para funcionar en tabletas y ordenadores.
+  const input=source&&source.files?source:null;
+  const f=input?(input.files&&input.files[0]):(source&&source[0]);
+  if(input)input.value=''; // Permite volver a elegir la misma fotografía si hay que repetir la prueba.
+  if(!f){console.warn('No se recibió ningún archivo para la fotografía de mobiliario.');alert('La tablet no ha entregado ninguna fotografía a la aplicación. Prueba de nuevo con ELEGIR FOTO. Si vuelve a ocurrir, no cambies nada más y anota este mensaje.');return;}
+  if(!current){alert('Abre una hoja de servicio antes de añadir una fotografía.');return;}
+  let rows=null,oldPhoto=null;
   try{
+    snapshotForm();
+    rows=current.data.furnitureRows=current.data.furnitureRows||[];
+    while(rows.length<=i)rows.push({});
+    oldPhoto=rows[i].photo;
+    const id=crypto.randomUUID();
+    const ext=(f.name.split('.').pop()||'jpg').toLowerCase();
+    const base=(current.number||'Hoja').replace(/[^A-Za-z0-9_-]/g,'_');
+    const name=`${base}_Mobiliario_${i+1}.${ext}`;
+    console.info('Fotografía de mobiliario seleccionada:',f.name,f.type,f.size);
     await putFile(id,f);
     rows[i].photo={id,name,type:f.type||'',date:new Date().toLocaleDateString('es-ES')};
-    saveSheet(true);
+    const saved=saveSheet(true);
+    if(saved===false)throw new Error('El archivo se ha subido, pero la hoja no se ha podido guardar. Comprueba el número de hoja.');
     editSheet();
   }catch(e){
     console.error('No se pudo guardar la foto de mobiliario:',e);
-    alert(`No se ha podido guardar la fotografía.\n\nError: ${e?.message||e}\n\nComprueba la conexión, la sesión y los permisos de Storage en Supabase. La foto no se ha añadido a la hoja.`);
-    if(oldPhoto)rows[i].photo=oldPhoto;
-    else delete rows[i].photo;
+    if(rows&&rows[i]){
+      if(oldPhoto)rows[i].photo=oldPhoto;
+      else delete rows[i].photo;
+    }
+    alert(`No se ha podido añadir la fotografía de mobiliario.\n\nMotivo: ${e&&e.message?e.message:String(e)}\n\nNo cierres la hoja. Comprueba la conexión y la sesión; si vuelve a ocurrir, envíanos una foto de este mensaje.`);
+    if(current)editSheet();
   }
 }
 async function deleteFurniturePhoto(i){if(!confirm('¿Seguro que quieres eliminar esta fotografía?'))return;snapshotForm();let p=current.data.furnitureRows?.[i]?.photo;if(p?.id)await delFile(p.id);if(current.data.furnitureRows?.[i])delete current.data.furnitureRows[i].photo;saveSheet(true);editSheet()}
