@@ -196,9 +196,15 @@ async function putFile(id,file){
   }
   return true;
 }
-async function getFile(id){let db=await fileDB();let local=await new Promise((res,rej)=>{let r=db.transaction('files','readonly').objectStore('files').get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});if(local)return local;const{data:{user}}=await supabaseClient.auth.getUser();if(!user)return null;const{data,error}=await supabaseClient.storage.from('adjuntos').download(user.id+'/'+id);if(error){console.error('Error descargando adjunto de Supabase:',error);return null}let file=new File([data],id,{type:data.type||'application/octet-stream'});await new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').put(file,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});return file}async function delFile(id){let db=await fileDB();return new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function addAttachments(key,files){
-  if(!current||!files||!files.length)return;
+async function getFile(id){let db=await fileDB();let local=await new Promise((res,rej)=>{let r=db.transaction('files','readonly').objectStore('files').get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});const{data:{user}}=await supabaseClient.auth.getUser();if(!user)return null;const{data,error}=await supabaseClient.storage.from('adjuntos').download(user.id+'/'+id);if(error){console.error('Error descargando adjunto de Supabase:',error);return null}let file=new File([data],id,{type:data.type||'application/octet-stream'});await new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').put(file,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});return file}async function delFile(id){let db=await fileDB();return new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+async function addAttachments(key,files){if(local){
+  try{
+    await local.arrayBuffer();
+    return local;
+  }catch(e){
+    console.warn('La copia local no se puede leer; se descargará desde Supabase.',e);
+  }
+}  if(!current||!files||!files.length)return;
   snapshotForm();
   const list=key==='attachments'?current.attachments:(current.data[key]=current.data[key]||[]);
   let added=0;
