@@ -103,7 +103,9 @@ function saveConfig(){DB.set('config',{name:$('#coName').value,roesb:$('#roesb')
 function certs(){app.innerHTML=`<div class="list"><div class="card"><h1>Certificados</h1><p>Este módulo queda preparado para AUTOCLAVE, MADERA IN SITU y DDD. TERMITAS no genera certificado.</p><button class="secondary" onclick="home()">← VOLVER</button></div></div>`}
 function printSheet(){if(!saveSheet())return;openPdfPreview(current)}
 function modal(html){$('#modalBody').innerHTML=html;$('#modal').classList.remove('hidden')}function closeModal(){$('#modal').classList.add('hidden')}
-if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});startApp();
+supabaseClient.auth.onAuthStateChange((event)=>{
+  if(event==='PASSWORD_RECOVERY') setTimeout(()=>passwordRecoveryView(),0);
+});if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});startApp();
 
 
 // ===== PDF A4 HORIZONTAL - UNA SOLA PAGINA =====
@@ -349,9 +351,44 @@ async function loginApp(){
     console.error('No se pudo completar el inicio de sesión:',e);
     loginView(loginErrorMessage(e),email);
   }
+}function passwordRecoveryView(){
+  app.innerHTML=`
+    <div class="chooser">
+      <div class="card" style="max-width:520px;margin:40px auto;padding:24px">
+        <h1>Nueva contraseña</h1>
+        <p>Escribe una contraseña nueva para tu cuenta.</p>
+
+        <label>Nueva contraseña</label>
+        <input id="newPassword" type="password">
+
+        <button type="button" onclick="updateRecoveredPassword()">
+          GUARDAR CONTRASEÑA
+        </button>
+      </div>
+    </div>
+  `;
 }
-async function startApp(){
-  try{
+
+async function updateRecoveredPassword(){
+  const password=document.getElementById('newPassword')?.value||'';
+
+  if(password.length<6){
+    alert('La contraseña debe tener al menos 6 caracteres.');
+    return;
+  }
+
+  const {error}=await supabaseClient.auth.updateUser({password});
+
+  if(error){
+    alert('No se ha podido cambiar la contraseña: '+error.message);
+    return;
+  }
+
+  alert('Contraseña cambiada correctamente.');
+  await supabaseClient.auth.signOut();
+  loginView();
+}
+async function startApp(){  try{
     const {data,error}=await supabaseClient.auth.getSession();
     if(error)throw error;
     if(data?.session){await syncSheetsWithSupabase();home();}else loginView();  }catch(e){console.error('No se pudo comprobar la sesión de Supabase:',e);loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');}
