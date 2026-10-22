@@ -34,8 +34,7 @@ async function syncSheetsWithSupabase(){
     }
   }else{
     const remoteSheets=(remoteRows||[]).map(row=>row.data);
-    DB.set('sheets',remoteSheets);
-  }
+    try{DB.set('sheets',remoteSheets);}catch(e){console.warn('No se pudieron guardar las hojas en localStorage; se continúa con Supabase.',e);}  }
 }
 
 async function saveSheetToSupabase(sheet){
