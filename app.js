@@ -388,8 +388,9 @@ async function updateRecoveredPassword(){
   await supabaseClient.auth.signOut();
   loginView();
 }
-async function startApp(){  try{
-    const {data,error}=await supabaseClient.auth.getSession();
+async function startApp(){
+  if(location.hash.includes('type=recovery')) return;
+  try{    const {data,error}=await supabaseClient.auth.getSession();
     if(error)throw error;
     if(data?.session){await syncSheetsWithSupabase();home();}else loginView();  }catch(e){console.error('No se pudo comprobar la sesión de Supabase:',e);loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');}
 }
