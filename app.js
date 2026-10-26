@@ -34,7 +34,10 @@ async function syncSheetsWithSupabase(){
     }
   }else{
     const remoteSheets=(remoteRows||[]).map(row=>row.data);
-    try{DB.set('sheets',remoteSheets);}catch(e){console.warn('No se pudieron guardar las hojas en localStorage; se continúa con Supabase.',e);}async function saveSheetToSupabase(sheet){
+    try{DB.set('sheets',remoteSheets);}catch(e){console.warn('No se pudieron guardar las hojas en localStorage; se continúa con Supabase.',e);}
+  }
+}
+async function saveSheetToSupabase(sheet){
   const {data:{user}}=await supabaseClient.auth.getUser();
   if(!user)return;
 
@@ -48,7 +51,8 @@ async function syncSheetsWithSupabase(){
     });
 
   if(error)console.error('Error guardando hoja en Supabase:',error);
-} $=s=>document.querySelector(s), app=$('#app');
+}
+const $=s=>document.querySelector(s), app=document.querySelector('#app');
 const DB={get(k,d=[]){try{return JSON.parse(localStorage.getItem('mhs_'+k))??d}catch{return d}},set(k,v){localStorage.setItem('mhs_'+k,JSON.stringify(v))}};
 let current=null,openBlock=null;
 const types={autoclave:'AUTOCLAVE',insitu:'MADERA IN SITU',termitas:'TERMITAS',ddd:'DDD',mobiliario:'MOBILIARIO'};
@@ -95,7 +99,7 @@ function newProductModal(){modal(`<h2>Nuevo producto</h2><div class="formgrid">$
 function saveProductModal(){let p={id:crypto.randomUUID(),name:$('#pn').value,maker:$('#pm').value,reg:$('#pr').value,active:$('#pa').value,expiry:$('#pe').value};if(Object.values(p).slice(1).some(x=>!x)){alert('Completa los cinco datos del producto.');return}let a=DB.get('products');a.push(p);DB.set('products',a);closeModal();current?pickProduct():productList()}
 function pickProduct(){let a=DB.get('products');modal(`<h2>Añadir producto</h2>${a.map(p=>`<div class="card" onclick="useProduct('${p.id}')" style="cursor:pointer"><b>${esc(p.name)}</b><br>${esc(p.maker)} · ${esc(p.reg)}</div>`).join('')||'<p>No hay productos. Crea el primero.</p>'}<p><button onclick="newProductModal()">＋ NUEVO PRODUCTO</button></p><div class="rowactions"><button class="secondary" onclick="closeModal()">CERRAR</button></div>`)}function useProduct(id){let p=DB.get('products').find(x=>x.id===id);if(p&&!current.products.some(x=>x.id===id))current.products.push(p);closeModal();editSheet()}
 function config(){let c=DB.get('config',{});app.innerHTML=`<div class="list"><h1>Configuración</h1><div class="card"><h2>Empresa</h2><div class="formgrid">${field('coName','Nombre / Razón social *',c.name||'')}${field('roesb','ROESB *',c.roesb||'')}${field('coAddr','Dirección *',c.address||'')}${field('coPhone','Teléfono *',c.phone||'')}${field('coEmail','Correo electrónico *',c.email||'','email')}</div><h2>Director Técnico</h2><div class="formgrid">${field('directorName','Nombre y apellidos *',c.director||'')}<div class="notice">La firma guardada se incorporará en una fase posterior.</div></div><div class="rowactions"><button class="secondary" onclick="home()">← VOLVER</button><button onclick="saveConfig()">GUARDAR</button></div></div></div>`}
-function saveConfigLegacy(){.set('config',{name:$('#coName').value,roesb:$('#roesb').value,address:$('#coAddr').value,phone:$('#coPhone').value,email:$('#coEmail').value,director:$('#directorName').value});alert('Configuración guardada.');home()}
+function saveConfigLegacy(){DB.set('config',{name:$('#coName').value,roesb:$('#roesb').value,address:$('#coAddr').value,phone:$('#coPhone').value,email:$('#coEmail').value,director:$('#directorName').value});alert('Configuración guardada.');home()}
 function certs(){app.innerHTML=`<div class="list"><div class="card"><h1>Certificados</h1><p>Este módulo queda preparado para AUTOCLAVE, MADERA IN SITU y DDD. TERMITAS no genera certificado.</p><button class="secondary" onclick="home()">← VOLVER</button></div></div>`}
 function printSheet(){if(!saveSheet())return;openPdfPreview(current)}
 function modal(html){$('#modalBody').innerHTML=html;$('#modal').classList.remove('hidden')}function closeModal(){$('#modal').classList.add('hidden')}
