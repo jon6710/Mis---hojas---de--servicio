@@ -34,7 +34,7 @@ async function syncSheetsWithSupabase(){
     }
   }else{
     const remoteSheets=(remoteRows||[]).map(row=>row.data);
-    try{DB.set('sheets',remoteSheets);}catch(e){console.warn('No se pudieron guardar las hojas en localStorage; se continúa con Supabase.',e);}
+    DB.set('sheets',remoteSheets);
   }
 }
 async function saveSheetToSupabase(sheet){
@@ -53,7 +53,34 @@ async function saveSheetToSupabase(sheet){
   if(error)console.error('Error guardando hoja en Supabase:',error);
 }
 const $=s=>document.querySelector(s), app=document.querySelector('#app');
-const DB={get(k,d=[]){try{return JSON.parse(localStorage.getItem('mhs_'+k))??d}catch{return d}},set(k,v){localStorage.setItem('mhs_'+k,JSON.stringify(v))}};
+const DB={
+  mem:Object.create(null),
+  get(k,d=[]){
+    if(Object.prototype.hasOwnProperty.call(this.mem,k))return this.mem[k];
+    try{
+      const raw=localStorage.getItem('mhs_'+k);
+      if(raw===null)return d;
+      const value=JSON.parse(raw)??d;
+      this.mem[k]=value;
+      return value;
+    }catch(e){
+      return d;
+    }
+  },
+  set(k,v){
+    this.mem[k]=v;
+    try{
+      localStorage.setItem('mhs_'+k,JSON.stringify(v));
+      return true;
+    }catch(e){
+      if(e?.name==='QuotaExceededError'||/quota/i.test(String(e))){
+        return false;
+      }
+      console.error('Error guardando datos locales:',e);
+      return false;
+    }
+  }
+};
 let current=null,openBlock=null;
 const types={autoclave:'AUTOCLAVE',insitu:'MADERA IN SITU',termitas:'TERMITAS',ddd:'DDD',mobiliario:'MOBILIARIO'};
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
