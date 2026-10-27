@@ -50,7 +50,8 @@ async function saveSheetToSupabase(sheet){
       updated_at:new Date().toISOString()
     });
 
-  if(error)console.error('Error guardando hoja en Supabase:',error);
+  if(error){console.error('Error guardando hoja en Supabase:',error);return false;}
+  return true;
 }
 const $=s=>document.querySelector(s), app=document.querySelector('#app');
 const DB={
@@ -567,7 +568,7 @@ async function mhsBuildPdfBlob(sheet, asCertificate=false){
   const s=JSON.parse(JSON.stringify(sheet));
   await prepareFurniturePdfPhotos(s); await prepareInsituPdfPhotos(s); await prepareAutoclavePdfPhotos(s); await prepareTermitePdfPlan(s); await prepareTermitePdfPhotos(s);
   const css=pdfBaseCss()+`@page{size:A4 portrait;margin:7mm}body{width:auto;height:auto;overflow:visible;margin:0}.page{width:196mm;min-height:283mm;overflow:visible;padding-bottom:10mm;margin:auto}.head{grid-template-columns:42mm 1fr 40mm}`;
-  let body=pdfBody({...s,clientSignature:undefined});
+  let body=pdfBody(asCertificate?{...s,clientSignature:undefined}:s);
   if(asCertificate) body=body.replace(/HOJA DE SERVICIO/g,'CERTIFICADO DE TRATAMIENTO');
   const host=document.createElement('div');
   host.style.cssText='position:fixed;left:-20000px;top:0;width:196mm;background:#fff;z-index:-1;';
@@ -629,3 +630,100 @@ async function mhsOpenCertificate(id){
     w.document.open();w.document.write(html);w.document.close();
   }catch(e){console.error('No se pudo preparar el certificado:',e);w.document.body.textContent='No se pudo preparar el certificado. Vuelve a intentarlo y consulta la consola si persiste.';}
 }
+
+
+// ===== REVISION 2026-10-27: sincronizacion y firma de cliente =====
+// La hoja PDF incluye la firma del cliente. El certificado la excluye expresamente.
+const _mhsPdfBodyWithoutClientSignature = pdfBody;
+pdfBody=function(s){
+  const body=_mhsPdfBodyWithoutClientSignature(s);
+  if(!s?.clientSignature) return body;
+  return body+`<div class="box" style="break-inside:avoid;page-break-inside:avoid"><h2>Firma del cliente</h2><div class="sign"><img src="${s.clientSignature}" style="display:block;max-width:80mm;max-height:30mm;object-fit:contain;margin:2mm 0"></div></div>`;
+};
+
+async function mhsPersistCurrentConfirmed(){
+  if(!current) return false;
+  collect();
+  const all=DB.get('sheets')||[];
+  if(current.number){
+    const dup=all.find(x=>(x.number||'').toLowerCase()===current.number.toLowerCase()&&x.id!==current.id);
+    if(dup){alert('Este N.º de hoja ya existe. Introduce otro número.');return false;}
+  }
+  const hasData=current.number||current.client?.name||Object.values(current.data||{}).some(v=>Array.isArray(v)?v.length:!!v)||current.clientSignature;
+  if(current.status==='PENDIENTE'&&hasData) current.status='EN PROCESO';
+  current.modified=new Date().toISOString().slice(0,10);
+  const i=all.findIndex(x=>x.id===current.id);
+  if(i<0) all.unshift(current); else all[i]=current;
+  DB.set('sheets',all);
+  const ok=await saveSheetToSupabase(current);
+  return ok===true;
+}
+
+function mhsCanvasHasInk(canvas){
+  try{
+    const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+    for(let i=3;i<data.length;i+=4){if(data[i]>0)return true;}
+  }catch(e){console.warn('No se pudo comprobar la firma:',e);}
+  return false;
+}
+
+const _mhsEditSheetConfirmedSignature=editSheet;
+editSheet=function(id){
+  _mhsEditSheetConfirmedSignature(id);
+  const canvas=document.getElementById('mhsClientSignature');
+  const saveBtn=document.getElementById('mhsSaveSignature');
+  const clearBtn=document.getElementById('mhsClearSignature');
+  const section=document.querySelector('.mhs-signature');
+  if(canvas&&saveBtn){
+    saveBtn.onclick=async()=>{
+      if(!mhsCanvasHasInk(canvas)){alert('Firma primero en el recuadro.');return;}
+      saveBtn.disabled=true;saveBtn.textContent='GUARDANDO…';
+      try{
+        current.clientSignature=canvas.toDataURL('image/png');
+        if(section) section.querySelector('.state').textContent='Guardando…';
+        const ok=await mhsPersistCurrentConfirmed();
+        if(!ok) throw new Error('Supabase no confirmó el guardado.');
+        if(section) section.querySelector('.state').textContent='Firmada';
+        alert('Firma guardada y sincronizada correctamente.');
+      }catch(e){
+        console.error('No se pudo guardar la firma:',e);
+        if(section) section.querySelector('.state').textContent='Pendiente';
+        alert('No se ha podido guardar la firma en Supabase. Comprueba la conexión y vuelve a intentarlo.');
+      }finally{saveBtn.disabled=false;saveBtn.textContent='GUARDAR FIRMA';}
+    };
+  }
+  if(canvas&&clearBtn){
+    clearBtn.onclick=async()=>{
+      canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+      current.clientSignature='';
+      if(section) section.querySelector('.state').textContent='Guardando…';
+      const ok=await mhsPersistCurrentConfirmed();
+      if(section) section.querySelector('.state').textContent=ok?'Pendiente':'Error al guardar';
+      if(!ok) alert('La firma se ha borrado en pantalla, pero Supabase no confirmó el cambio.');
+    };
+  }
+};
+
+// Al entrar en la lista de hojas, siempre se descarga primero la version actual de Supabase.
+const _mhsSheetListWithImportExport=sheetList;
+sheetList=async function(){
+  try{await syncSheetsWithSupabase();}
+  catch(e){console.error('No se pudieron actualizar las hojas antes de mostrar la lista:',e);}
+  _mhsSheetListWithImportExport();
+};
+
+let _mhsBackgroundSyncBusy=false;
+async function mhsBackgroundSync(){
+  if(_mhsBackgroundSyncBusy) return;
+  if(document.querySelector('.sheet')) return; // no pisar una hoja mientras se esta editando
+  _mhsBackgroundSyncBusy=true;
+  try{
+    const {data}=await supabaseClient.auth.getSession();
+    if(!data?.session) return;
+    await syncSheetsWithSupabase();
+    if(document.getElementById('sheetRows')) renderSheetRows();
+  }catch(e){console.warn('Sincronizacion automatica pendiente:',e);}
+  finally{_mhsBackgroundSyncBusy=false;}
+}
+window.addEventListener('focus',mhsBackgroundSync);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsBackgroundSync();});
