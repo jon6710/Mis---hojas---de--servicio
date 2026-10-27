@@ -112,7 +112,7 @@ function dddForm(d){return acc('actions','ACTUACIONES',`<label>Tipo de actuació
 function safety(d){return `<div class="formgrid">${field('safetyQty','Cantidad',d.safetyQty||'','number')}<div class="field"><label>Unidad</label><select id="safetyUnit"><option>Horas</option><option>Días</option></select></div><label class="pill full"><input type="checkbox" id="noSafety"> SIN PLAZO DE SEGURIDAD</label><div class="notice full">Si se selecciona “Sin plazo”: Producto biocida. No tocar hasta su completo secado.</div></div>`}
 function attachments(photos=false){return `<div class="actions"><button onclick="document.getElementById('attach').click()">📷 ${photos?'HACER / ELEGIR FOTO':'AÑADIR ARCHIVO'}</button><input id="attach" class="hidden" type="file" ${photos?'accept="image/*" capture="environment"':'accept="image/*,.pdf"'} multiple></div><p class="notice">Los adjuntos quedarán asociados a la hoja. En esta primera construcción ya está preparada la interfaz; el almacenamiento de archivos se completará en la siguiente iteración.</p>`}
 function collect(){current.number=$('#num')?.value.trim()||'';current.date=$('#date')?.value||'';current.start=$('#start')?.value||'';current.end=$('#end')?.value||'';current.client={name:$('#cname')?.value||'',contact:$('#contact')?.value||'',address:$('#address')?.value||'',phone:$('#phone')?.value||'',email:$('#email')?.value||''};current.data.observations=$('#observations')?.value||'';document.querySelectorAll('input,textarea,select').forEach(el=>{if(el.id && !['num','date','start','end','cname','contact','address','phone','email','observations'].includes(el.id))current.data[el.id]=el.type==='checkbox'?el.checked:el.value});['treat','dddAction','pest','method'].forEach(n=>current.data[n]=[...document.querySelectorAll(`[name="${n}"]:checked`)].map(x=>x.value));['location','purpose','termAction','termSystem','result'].forEach(n=>{let x=document.querySelector(`[name="${n}"]:checked`);if(x)current.data[n]=x.value})}
-function saveSheet(){collect();if(!current.number){alert('Introduce el N.º de hoja.');return false}let all=DB.get('sheets'),dup=all.find(x=>x.number.toLowerCase()===current.number.toLowerCase()&&x.id!==current.id);if(dup){alert('Este N.º de hoja ya existe. Introduce otro número.');return false}if(current.status==='PENDIENTE')current.status='EN PROCESO';current.modified=new Date().toISOString().slice(0,10);let i=all.findIndex(x=>x.id===current.id);if(i<0)all.unshift(current);else all[i]=current;DB.set('sheets',all);saveSheetToSupabase(current);('#saveMsg').textContent='✓ Guardado automáticamente';setTimeout(()=>$('#saveMsg').textContent='',2200);return true}
+function saveSheet(){collect();if(!current.number){alert('Introduce el N.º de hoja.');return false}let all=DB.get('sheets'),dup=all.find(x=>x.number.toLowerCase()===current.number.toLowerCase()&&x.id!==current.id);if(dup){alert('Este N.º de hoja ya existe. Introduce otro número.');return false}if(current.status==='PENDIENTE')current.status='EN PROCESO';current.modified=new Date().toISOString().slice(0,10);let i=all.findIndex(x=>x.id===current.id);if(i<0)all.unshift(current);else all[i]=current;DB.set('sheets',all);saveSheetToSupabase(current);$('#saveMsg').textContent='✓ Guardado automáticamente';setTimeout(()=>$('#saveMsg').textContent='',2200);return true}
 function finalizeSheet(){collect();let miss=[];if(!current.number)miss.push('N.º de hoja');if(!current.date)miss.push('Fecha');let c=current.client;if(!c.name||!c.address||!c.contact||!c.phone||!c.email)miss.push('Datos completos del cliente');if(current.products.length<1 && ['termitas','ddd'].includes(current.type))miss.push('Al menos un producto');if(current.type==='ddd'){if(!(current.data.dddAction||[]).length)miss.push('Tipo de actuación');if(!(current.data.pest||[]).length)miss.push('Plaga/agente');if(!(current.data.method||[]).length)miss.push('Método de aplicación');if(!current.data.dddZones)miss.push('Zonas/áreas tratadas')}if(current.type==='termitas'){if(!current.data.termAction)miss.push('Tipo de actuación');if(!current.data.termSystem)miss.push('Sistema de tratamiento');if(!current.data.termZones)miss.push('Zonas tratadas/revisadas');if(!current.data.installDate)miss.push('Fecha de instalación inicial');if(current.data.termSystem==='Sistema de cebos'&&!(current.data.stations||[]).length)miss.push('Al menos una estación ES o EP')}if(miss.length){alert(`Faltan ${miss.length} campos/requisitos:\n• `+miss.join('\n• '));return}if(confirm('¿Quieres finalizar esta hoja de servicio? La hoja seguirá pudiendo editarse posteriormente.')){current.status='FINALIZADA';saveSheet();editSheet();alert('Hoja finalizada correctamente.')}}
 function duplicateSheet(){let n=blank(current.type);n.client={...current.client};current=n;editSheet()}
 function sheetList(){let a=DB.get('sheets');app.innerHTML=`<div class="list"><div class="listhead"><button onclick="showView('new')">＋ NUEVA HOJA</button><input id="search" placeholder="Buscar por N.º, cliente o fecha" oninput="renderSheetRows()"><button class="secondary" onclick="home()">← INICIO</button></div><div class="card"><table><thead><tr><th>N.º hoja</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Estado</th></tr></thead><tbody id="sheetRows"></tbody></table></div></div>`;renderSheetRows()}
@@ -228,14 +228,7 @@ async function putFile(id,file){
   return true;
 }
 async function getFile(id){let db=await fileDB();let local=await new Promise((res,rej)=>{let r=db.transaction('files','readonly').objectStore('files').get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});const{data:{user}}=await supabaseClient.auth.getUser();if(!user)return null;const{data,error}=await supabaseClient.storage.from('adjuntos').download(user.id+'/'+id);if(error){console.error('Error descargando adjunto de Supabase:',error);return null}let file=new File([data],id,{type:data.type||'application/octet-stream'});await new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').put(file,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});return file}async function delFile(id){let db=await fileDB();return new Promise((res,rej)=>{let tx=db.transaction('files','readwrite');tx.objectStore('files').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function addAttachments(key,files){if(local){
-  try{
-    await local.arrayBuffer();
-    return local;
-  }catch(e){
-    console.warn('La copia local no se puede leer; se descargará desde Supabase.',e);
-  }
-}  if(!current||!files||!files.length)return;
+async function addAttachments(key,files){if(!current||!files||!files.length)return;
   snapshotForm();
   const list=key==='attachments'?current.attachments:(current.data[key]=current.data[key]||[]);
   let added=0;
@@ -384,19 +377,17 @@ async function loginApp(){
     console.error('No se pudo completar el inicio de sesión:',e);
     loginView(loginErrorMessage(e),email);
   }
-}function passwordRecoveryView(){
+}function passwordRecoveryView(message=''){
   app.innerHTML=`
     <div class="chooser">
       <div class="card" style="max-width:520px;margin:40px auto;padding:24px">
         <h1>Nueva contraseña</h1>
-        <p>Escribe una contraseña nueva para tu cuenta.</p>
-
-        <label>Nueva contraseña</label>
-        <input id="newPassword" type="password">
-
-        <button type="button" onclick="updateRecoveredPassword()">
-          GUARDAR CONTRASEÑA
-        </button>
+        <p>Escribe y confirma una contraseña nueva para tu cuenta.</p>
+        ${message?`<div class="notice" role="alert">${esc(message)}</div>`:''}
+        <div class="field full"><label for="newPassword">Nueva contraseña</label><input id="newPassword" type="password" autocomplete="new-password"></div>
+        <div class="field full"><label for="confirmNewPassword">Repite la contraseña</label><input id="confirmNewPassword" type="password" autocomplete="new-password"></div>
+        <p><button type="button" onclick="updateRecoveredPassword()">GUARDAR CONTRASEÑA</button></p>
+        <p><button type="button" class="secondary" onclick="history.replaceState(null,'',location.pathname);loginView()">VOLVER AL ACCESO</button></p>
       </div>
     </div>
   `;
@@ -404,31 +395,237 @@ async function loginApp(){
 
 async function updateRecoveredPassword(){
   const password=document.getElementById('newPassword')?.value||'';
-
-  if(password.length<6){
-    alert('La contraseña debe tener al menos 6 caracteres.');
-    return;
-  }
-
-  const {error}=await supabaseClient.auth.updateUser({password});
-
-  if(error){
-    alert('No se ha podido cambiar la contraseña: '+error.message);
-    return;
-  }
-
+  const confirmation=document.getElementById('confirmNewPassword')?.value||'';
+  if(password.length<6){alert('La contraseña debe tener al menos 6 caracteres.');return;}
+  if(password!==confirmation){alert('Las contraseñas no coinciden.');return;}
+  const {data,error}=await supabaseClient.auth.updateUser({password});
+  if(error){alert('No se ha podido cambiar la contraseña: '+error.message);return;}
   alert('Contraseña cambiada correctamente.');
   await supabaseClient.auth.signOut();
+  history.replaceState(null,'',location.pathname);
   loginView();
 }
 async function startApp(){
-  if(location.hash.includes('type=recovery')) return;
-  try{    const {data,error}=await supabaseClient.auth.getSession();
+  try{
+    const {data,error}=await supabaseClient.auth.getSession();
     if(error)throw error;
-    if(data?.session){await syncSheetsWithSupabase();home();}else loginView();  }catch(e){console.error('No se pudo comprobar la sesión de Supabase:',e);loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');}
+    if(location.hash.includes('type=recovery')){
+      if(data?.session) passwordRecoveryView();
+      else passwordRecoveryView('El enlace de recuperación no ha iniciado una sesión válida. Solicita un nuevo correo y abre el enlace más reciente.');
+      return;
+    }
+    if(data?.session){await syncSheetsWithSupabase();home();}else loginView();
+  }catch(e){
+    console.error('No se pudo comprobar la sesión de Supabase:',e);
+    if(location.hash.includes('type=recovery')) passwordRecoveryView('No se pudo validar el enlace. Solicita un nuevo correo de recuperación.');
+    else loginView('No se ha podido comprobar la sesión. Recarga la página y vuelve a intentarlo.');
+  }
 }
 async function logoutApp(){
   const {error}=await supabaseClient.auth.signOut();
   if(error){console.error('No se pudo cerrar la sesión:',error);alert('No se ha podido cerrar la sesión.');return}
   loginView();
+}
+
+
+/* ===== Mejoras de uso v1.1 (27-10-2026) ===== */
+const _mhsOriginalLoginView = loginView;
+loginView = function(message='', email=''){
+  _mhsOriginalLoginView(message,email);
+  const card=app.querySelector('.card');
+  if(card && !document.getElementById('mhsRecoveryLink')){
+    const p=document.createElement('p');
+    p.innerHTML='<button id="mhsRecoveryLink" type="button" class="secondary">RECUPERAR CONTRASEÑA</button>';
+    card.appendChild(p);
+    document.getElementById('mhsRecoveryLink').onclick=mhsSendRecovery;
+  }
+};
+async function mhsSendRecovery(){
+  const email=document.getElementById('loginEmail')?.value.trim()||'';
+  if(!email){alert('Escribe primero el correo electrónico de tu cuenta.');return;}
+  const redirectTo=location.origin+location.pathname;
+  const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo});
+  if(error){alert('No se pudo enviar el correo de recuperación: '+error.message);return;}
+  alert('Si el correo está registrado, recibirás un mensaje para recuperar la contraseña. Revisa también el correo no deseado.');
+}
+const _mhsOriginalHome=home;
+home=function(){
+  _mhsOriginalHome();
+  const box=app.querySelector('.home');
+  if(box&&!document.getElementById('mhsLogout')){
+    const b=document.createElement('button');
+    b.id='mhsLogout';b.className='secondary';b.textContent='SALIR DE LA APLICACIÓN';
+    b.style.marginTop='18px';b.onclick=logoutApp;box.appendChild(b);
+  }
+};
+const _mhsOriginalEditSheet=editSheet;
+editSheet=function(id){
+  _mhsOriginalEditSheet(id);
+  if(!current)return;
+  const sheet=document.querySelector('.sheet');
+  if(!sheet)return;
+  const toolbar=document.querySelector('.toolbar');
+  if(toolbar && !toolbar.querySelector('#mhsShareEmail')){
+    const emailBtn=document.createElement('button');emailBtn.id='mhsShareEmail';emailBtn.className='secondary';emailBtn.textContent='COMPARTIR PDF POR CORREO';emailBtn.onclick=()=>mhsShareSheet(current.id,'email');toolbar.appendChild(emailBtn);
+    const waBtn=document.createElement('button');waBtn.className='secondary';waBtn.textContent='COMPARTIR PDF POR WHATSAPP';waBtn.onclick=()=>mhsShareSheet(current.id,'whatsapp');toolbar.appendChild(waBtn);
+  }
+  const section=document.createElement('section');
+  section.className='accordion mhs-signature';
+  section.innerHTML=`<div class="accHead"><span>FIRMA DEL CLIENTE</span><span class="state">${current.clientSignature?'Firmada':'Pendiente'}</span></div>
+    <div class="accBody" style="display:block">
+      <p>El cliente debe firmar esta hoja. La firma se guarda únicamente en esta hoja de servicio.</p>
+      <canvas id="mhsClientSignature" aria-label="Zona para firmar con dedo o lápiz" style="display:block;width:100%;height:180px;touch-action:none;border:1px solid #9aa;padding:0;background:#fff;border-radius:6px"></canvas>
+      <div class="rowactions"><button type="button" class="secondary" id="mhsClearSignature">BORRAR FIRMA</button><button type="button" id="mhsSaveSignature">GUARDAR FIRMA</button></div>
+      <p class="notice">La firma del cliente no se incluye en el PDF/certificado generado por esta aplicación.</p>
+    </div>`;
+  sheet.appendChild(section);
+  const canvas=document.getElementById('mhsClientSignature');
+  const ctx=canvas.getContext('2d');
+  let drawing=false, signed=false;
+  function fitCanvas(){
+    const old=current.clientSignature;
+    const rect=canvas.getBoundingClientRect();
+    const ratio=Math.max(window.devicePixelRatio||1,1);
+    canvas.width=Math.max(1,Math.round(rect.width*ratio));canvas.height=Math.round(180*ratio);
+    ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineWidth=2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';
+    if(old){const img=new Image();img.onload=()=>{ctx.drawImage(img,0,0,rect.width,180);signed=true};img.src=old;}
+  }
+  fitCanvas();
+  function point(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+  canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);drawing=true;const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+.1,p.y+.1);ctx.stroke();signed=true;});
+  canvas.addEventListener('pointermove',e=>{if(!drawing)return;e.preventDefault();const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke();});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>canvas.addEventListener(ev,()=>drawing=false));
+  document.getElementById('mhsClearSignature').onclick=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);signed=false;current.clientSignature='';section.querySelector('.state').textContent='Pendiente';};
+  document.getElementById('mhsSaveSignature').onclick=()=>{if(!signed){alert('Firma primero en el recuadro.');return;}current.clientSignature=canvas.toDataURL('image/png');section.querySelector('.state').textContent='Firmada';if(saveSheet())alert('Firma guardada en esta hoja de servicio.');};
+};
+const _mhsOriginalCollect=collect;
+collect=function(){
+  _mhsOriginalCollect();
+  const canvas=document.getElementById('mhsClientSignature');
+  if(canvas && current){
+    try{
+      const ctx=canvas.getContext('2d');
+      const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      let hasInk=false;for(let i=3;i<pixels.length;i+=4){if(pixels[i]>0){hasInk=true;break;}}
+      if(hasInk)current.clientSignature=canvas.toDataURL('image/png');
+    }catch(e){console.warn('No se pudo leer la firma en este momento.',e);}
+  }
+};
+/* saveSheet original ya sincroniza con Supabase; no duplicar el upsert. */
+/* Importación/exportación de clientes y hojas en JSON */
+function mhsDownloadJSON(filename,data){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function mhsExportAll(){
+  mhsDownloadJSON('mis-hojas-servicio-export-'+new Date().toISOString().slice(0,10)+'.json',{
+    format:'mis-hojas-servicio-export-v1',exportedAt:new Date().toISOString(),
+    clients:DB.get('clients'),sheets:DB.get('sheets')
+  });
+}
+function mhsImportAll(input){
+  const file=input.files?.[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const obj=JSON.parse(reader.result);
+      if(!obj||(!Array.isArray(obj.clients)&&!Array.isArray(obj.sheets)))throw new Error('El JSON no contiene clientes ni hojas reconocibles.');
+      if(!confirm('La importación añadirá los datos del archivo y evitará duplicados por ID. ¿Continuar?'))return;
+      const clients=DB.get('clients'),sheets=DB.get('sheets');
+      const merge=(old,incoming)=>{const m=new Map(old.map(x=>[x.id,x]));incoming.forEach(x=>{if(x&&x.id)m.set(x.id,x)});return [...m.values()]};
+      if(Array.isArray(obj.clients))DB.set('clients',merge(clients,obj.clients));
+      if(Array.isArray(obj.sheets)){
+        const merged=merge(sheets,obj.sheets);DB.set('sheets',merged);
+        (async()=>{for(const s of obj.sheets){try{await saveSheetToSupabase(s)}catch(e){console.error(e)}}alert('Importación terminada. Si alguna hoja no se sincronizó, consulta la consola.');showView('sheets')})();
+      }else{alert('Clientes importados.');clientList();}
+    }catch(e){alert('No se pudo importar el archivo: '+e.message);}
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+const _mhsOriginalClientList=clientList;
+clientList=function(){
+  _mhsOriginalClientList();
+  const head=app.querySelector('.listhead');
+  if(head){
+    const exp=document.createElement('button');exp.className='secondary';exp.textContent='EXPORTAR CLIENTES';exp.onclick=()=>mhsDownloadJSON('clientes-'+new Date().toISOString().slice(0,10)+'.json',{format:'mhs-clients-v1',clients:DB.get('clients')});head.insertBefore(exp,head.firstChild);
+    const lab=document.createElement('label');lab.className='secondary';lab.style.cssText='padding:10px 14px;border-radius:8px;cursor:pointer';lab.textContent='IMPORTAR CLIENTES';const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';inp.style.display='none';inp.onchange=()=>mhsImportAll(inp);lab.appendChild(inp);head.insertBefore(lab,head.firstChild); 
+  }
+};
+const _mhsOriginalSheetList=sheetList;
+sheetList=function(){
+  _mhsOriginalSheetList();
+  const head=app.querySelector('.listhead');
+  if(head){
+    const exp=document.createElement('button');exp.className='secondary';exp.textContent='EXPORTAR HOJAS Y CLIENTES';exp.onclick=mhsExportAll;head.insertBefore(exp,head.firstChild);
+    const lab=document.createElement('label');lab.className='secondary';lab.style.cssText='padding:10px 14px;border-radius:8px;cursor:pointer';lab.textContent='IMPORTAR ARCHIVO';const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';inp.style.display='none';inp.onchange=()=>mhsImportAll(inp);lab.appendChild(inp);head.insertBefore(lab,head.firstChild);
+  }
+};
+/* Compartir PDF: usa la hoja nativa del dispositivo para compartir el archivo real cuando esté disponible. */
+async function mhsBuildPdfBlob(sheet, asCertificate=false){
+  if(typeof html2pdf==='undefined') throw new Error('No se ha podido cargar el generador PDF. Comprueba la conexión y vuelve a intentarlo.');
+  const s=JSON.parse(JSON.stringify(sheet));
+  await prepareFurniturePdfPhotos(s); await prepareInsituPdfPhotos(s); await prepareAutoclavePdfPhotos(s); await prepareTermitePdfPlan(s); await prepareTermitePdfPhotos(s);
+  const css=pdfBaseCss()+`@page{size:A4 portrait;margin:7mm}body{width:auto;height:auto;overflow:visible;margin:0}.page{width:196mm;min-height:283mm;overflow:visible;padding-bottom:10mm;margin:auto}.head{grid-template-columns:42mm 1fr 40mm}`;
+  let body=pdfBody({...s,clientSignature:undefined});
+  if(asCertificate) body=body.replace(/HOJA DE SERVICIO/g,'CERTIFICADO DE TRATAMIENTO');
+  const host=document.createElement('div');
+  host.style.cssText='position:fixed;left:-20000px;top:0;width:196mm;background:#fff;z-index:-1;';
+  host.innerHTML=`<style>${css}</style><div class="page">${body}${asCertificate?'<div class="footer">Certificado generado desde Mis Hojas de Servicio · Firma del cliente excluida</div>':''}</div>`;
+  document.body.appendChild(host);
+  try{
+    const imgs=[...host.querySelectorAll('img')];
+    await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;setTimeout(resolve,5000)})));
+    return await html2pdf().set({
+      margin:7,
+      filename:`${asCertificate?'certificado':'hoja-servicio'}-${(s.number||'sin-numero').replace(/[^a-z0-9_-]/gi,'_')}.pdf`,
+      image:{type:'jpeg',quality:0.96},
+      html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+      pagebreak:{mode:['css','legacy']}
+    }).from(host.querySelector('.page')).outputPdf('blob');
+  } finally {host.remove();}
+}
+function mhsDownloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
+async function mhsShareSheet(id,channel,asCertificate=false){
+  const s=DB.get('sheets').find(x=>x.id===id);if(!s)return;
+  const title=`${asCertificate?'Certificado':'Hoja de servicio'} ${s.number||''}`.trim();
+  const msg=`${title}\nFecha: ${s.date||''}\nCliente: ${s.client?.name||''}\nTipo: ${types[s.type]||s.type}`;
+  const filename=`${asCertificate?'certificado':'hoja-servicio'}-${(s.number||'sin-numero').replace(/[^a-z0-9_-]/gi,'_')}.pdf`;
+  try{
+    if(channel==='email'&&!s.client?.email) {if(!confirm('Esta hoja no tiene correo del cliente. ¿Continuar para elegir destinatario?'))return;}
+    const blob=await mhsBuildPdfBlob(s,asCertificate);
+    const file=new File([blob],filename,{type:'application/pdf'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title,text:msg});
+      return;
+    }
+    mhsDownloadBlob(blob,filename);
+    const note='El navegador no permite adjuntar archivos automáticamente. El PDF se ha descargado; adjúntalo al mensaje que se abrirá.';
+    alert(note);
+    if(channel==='email'){
+      const to=s.client?.email||'';
+      location.href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(title)+'&body='+encodeURIComponent(msg+'\n\nAdjunto el PDF generado.');
+    }else{
+      window.open('https://wa.me/?text='+encodeURIComponent(msg+'\n\nTe envío el PDF generado.'),'_blank','noopener');
+    }
+  }catch(e){console.error('Error al generar/compartir el PDF:',e);alert('No se pudo generar o compartir el PDF. '+(e?.message||'Comprueba la conexión e inténtalo de nuevo.'));}
+}
+const _mhsOriginalCerts=certs;
+certs=function(){
+  const sheets=DB.get('sheets');
+  app.innerHTML=`<div class="list"><div class="listhead"><button class="secondary" onclick="home()">← INICIO</button><button onclick="mhsExportAll()">EXPORTAR DATOS</button></div><div class="card"><h1>Certificados</h1><p>El PDF de certificado se genera sin incluir la firma del cliente.</p><table><thead><tr><th>N.º hoja</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Acciones</th></tr></thead><tbody>${sheets.map(s=>`<tr><td>${esc(s.number||'')}</td><td>${esc(s.date||'')}</td><td>${esc(s.client?.name||'')}</td><td>${esc(types[s.type]||s.type||'')}</td><td><button onclick="mhsOpenCertificate('${s.id}')">CERTIFICADO PDF</button> <button class="secondary" onclick="mhsShareSheet('${s.id}','email',true)">COMPARTIR CERTIFICADO POR CORREO</button> <button class="secondary" onclick="mhsShareSheet('${s.id}','whatsapp',true)">COMPARTIR CERTIFICADO POR WHATSAPP</button></td></tr>`).join('')||'<tr><td colspan="5">No hay hojas guardadas.</td></tr>'}</tbody></table></div></div>`;
+};
+async function mhsOpenCertificate(id){
+  const original=DB.get('sheets').find(x=>x.id===id);if(!original)return;
+  const w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para generar el certificado.');return;}
+  w.document.write('<!doctype html><html lang="es"><meta charset="utf-8"><title>Preparando certificado</title><body style="font-family:Arial;padding:24px">Preparando certificado…</body></html>');
+  const s=JSON.parse(JSON.stringify(original));
+  try{
+    await prepareFurniturePdfPhotos(s);await prepareInsituPdfPhotos(s);await prepareAutoclavePdfPhotos(s);await prepareTermitePdfPlan(s);await prepareTermitePdfPhotos(s);
+    let css=pdfBaseCss()+`@page{size:A4 portrait;margin:7mm}body{width:auto;height:auto;overflow:visible;margin:0}.page{width:196mm;height:auto;min-height:283mm;overflow:visible;padding-bottom:10mm;margin:auto}.head{grid-template-columns:42mm 1fr 40mm}`;
+    let body=pdfBody({...s,clientSignature:undefined}).replace(/HOJA DE SERVICIO/g,'CERTIFICADO DE TRATAMIENTO');
+    const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Certificado ${esc(s.number||'')}</title><style>${css}</style></head><body><div class="page">${body}<div class="footer">Certificado generado desde Mis Hojas de Servicio · Firma del cliente excluida</div></div><script>setTimeout(()=>window.print(),700)<\/script></body></html>`;
+    w.document.open();w.document.write(html);w.document.close();
+  }catch(e){console.error('No se pudo preparar el certificado:',e);w.document.body.textContent='No se pudo preparar el certificado. Vuelve a intentarlo y consulta la consola si persiste.';}
 }
