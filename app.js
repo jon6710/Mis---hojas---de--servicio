@@ -923,3 +923,136 @@ config=async function(){
     actions.insertBefore(btn,actions.firstChild);
   }catch(e){console.warn('No se pudo comprobar el usuario administrador para la configuración.',e);}
 };
+
+
+/* ===== SINCRONIZACION DEL CATALOGO DE PRODUCTOS ENTRE DISPOSITIVOS =====
+   Guarda el catálogo compartido en app_data (igual que la configuración de empresa).
+   Las hojas conservan su copia histórica de cada producto. */
+async function mhsLoadProductCatalogFromSupabase(){
+  const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+  if(authError) throw authError;
+  if(!user) return DB.get('products',[])||[];
+
+  const {data:rows,error}=await supabaseClient
+    .from('app_data')
+    .select('id,data,updated_at')
+    .eq('user_id',user.id)
+    .eq('data_type','products')
+    .eq('record_id','catalog')
+    .order('updated_at',{ascending:false})
+    .limit(1);
+  if(error) throw error;
+
+  const row=(rows||[])[0];
+  if(row && Array.isArray(row.data)){
+    DB.set('products',row.data);
+    return row.data;
+  }
+
+  // Migración inicial: si este dispositivo ya tiene un catálogo local, súbelo
+  // solo cuando aún no existe catálogo compartido. No crea catálogos vacíos.
+  const local=DB.get('products',[])||[];
+  if(!row && local.length){
+    await mhsSaveProductCatalogToSupabase(local,user.id);
+  }
+  return local;
+}
+
+async function mhsSaveProductCatalogToSupabase(products,userId){
+  let uid=typeof userId==='string'?userId:userId?.id;
+  if(!uid){
+    const {data:{user:currentUser},error:authError}=await supabaseClient.auth.getUser();
+    if(authError) throw authError;
+    uid=currentUser?.id;
+  }
+  if(!uid) throw new Error('No hay una sesión iniciada en Supabase.');
+
+  const {data:rows,error:readError}=await supabaseClient
+    .from('app_data')
+    .select('id')
+    .eq('user_id',uid)
+    .eq('data_type','products')
+    .eq('record_id','catalog')
+    .limit(1);
+  if(readError) throw readError;
+
+  const existing=(rows||[])[0];
+  if(existing?.id){
+    const {error}=await supabaseClient
+      .from('app_data')
+      .update({data:products,updated_at:new Date().toISOString()})
+      .eq('id',existing.id)
+      .eq('user_id',uid);
+    if(error) throw error;
+  }else{
+    const {error}=await supabaseClient
+      .from('app_data')
+      .insert({user_id:uid,data_type:'products',record_id:'catalog',data:products});
+    if(error) throw error;
+  }
+  DB.set('products',products);
+  return products;
+}
+
+const _mhsOriginalProductListForSync=productList;
+productList=async function(){
+  try{ await mhsLoadProductCatalogFromSupabase(); }
+  catch(e){
+    console.error('No se pudo sincronizar el catálogo de productos:',e);
+    alert('No se ha podido actualizar el catálogo compartido. Comprueba la conexión e inténtalo de nuevo. No se han borrado productos.');
+  }
+  _mhsOriginalProductListForSync();
+};
+
+const _mhsOriginalPickProductForSync=pickProduct;
+pickProduct=async function(){
+  try{ await mhsLoadProductCatalogFromSupabase(); }
+  catch(e){ console.error('No se pudo actualizar el catálogo antes de elegir un producto:',e); }
+  _mhsOriginalPickProductForSync();
+};
+
+saveProductModal=async function(){
+  const p={id:crypto.randomUUID(),name:$('#pn').value,maker:$('#pm').value,reg:$('#pr').value,active:$('#pa').value,expiry:$('#pe').value};
+  if(Object.values(p).slice(1).some(x=>!x)){alert('Completa los cinco datos del producto.');return;}
+  try{
+    const existing=await mhsLoadProductCatalogFromSupabase();
+    const products=Array.isArray(existing)?existing.slice():[];
+    products.push(p);
+    await mhsSaveProductCatalogToSupabase(products);
+    closeModal();
+    if(current) await pickProduct();
+    else _mhsOriginalProductListForSync();
+  }catch(e){
+    console.error('No se pudo guardar el producto en el catálogo compartido:',e);
+    alert('No se ha podido sincronizar el producto. No cierres la aplicación; comprueba la conexión y vuelve a intentarlo.');
+  }
+};
+
+deleteCatalogProduct=async function(id){
+  try{
+    await mhsLoadProductCatalogFromSupabase();
+    const products=DB.get('products',[])||[];
+    const p=products.find(x=>x.id===id);
+    if(!p)return;
+    if(!confirm(`¿Eliminar “${p.name}” del catálogo de productos?`))return;
+    if(!confirm('Las hojas existentes conservarán los datos del producto, pero ya no aparecerá para nuevas hojas. ¿Continuar?'))return;
+    const updated=products.filter(x=>x.id!==id);
+    await mhsSaveProductCatalogToSupabase(updated);
+    _mhsOriginalProductListForSync();
+  }catch(e){
+    console.error('No se pudo eliminar el producto del catálogo compartido:',e);
+    alert('No se ha podido sincronizar el borrado. El producto no se ha eliminado del catálogo compartido. Comprueba la conexión e inténtalo de nuevo.');
+  }
+};
+
+// Al volver a la aplicación, refresca el catálogo si está abierta esa pantalla.
+async function mhsRefreshProductCatalogOnReturn(){
+  const firstButton=app.querySelector('.listhead button');
+  if(!firstButton || !firstButton.textContent.includes('NUEVO PRODUCTO')) return;
+  try{
+    await mhsLoadProductCatalogFromSupabase();
+    _mhsOriginalProductListForSync();
+  }catch(e){ console.warn('Sincronización del catálogo pendiente:',e); }
+}
+window.addEventListener('focus',mhsRefreshProductCatalogOnReturn);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsRefreshProductCatalogOnReturn();});
