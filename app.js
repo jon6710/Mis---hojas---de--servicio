@@ -840,3 +840,77 @@ supabaseClient.auth.onAuthStateChange((event,session)=>{
 // Al volver a la aplicación desde otro dispositivo, actualizar también la configuración de empresa.
 window.addEventListener('focus',()=>{mhsLoadCompanyConfigFromSupabase();});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsLoadCompanyConfigFromSupabase();});
+
+/* ===== BORRADO DE DATOS DE EMPRESA SOLO PARA ADMINISTRADOR (28-10-2026) ===== */
+const MHS_ADMIN_EMAIL='autoclavesarbide@gmail.com';
+function mhsIsAdminUser(user){
+  return String(user?.email||'').trim().toLowerCase()===MHS_ADMIN_EMAIL;
+}
+
+async function mhsDeleteCompanyConfigAdmin(){
+  try{
+    const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+    if(authError) throw authError;
+    if(!user || !mhsIsAdminUser(user)){
+      alert('Esta función está disponible únicamente para el usuario administrador.');
+      return;
+    }
+    if(!confirm('¿Seguro que quieres borrar TODOS los datos de empresa, incluido logotipo y firma del Director Técnico?')) return;
+    if(!confirm('Esta acción dejará vacía la configuración de empresa en todos los dispositivos sincronizados. ¿Continuar?')) return;
+
+    const emptyConfig={};
+    const {data:rows,error:readError}=await supabaseClient
+      .from('app_data')
+      .select('id')
+      .eq('data_type','config')
+      .eq('record_id','company')
+      .limit(1);
+    if(readError) throw readError;
+
+    const existing=(rows||[])[0];
+    if(existing?.id){
+      const {error}=await supabaseClient
+        .from('app_data')
+        .update({data:emptyConfig})
+        .eq('id',existing.id)
+        .eq('user_id',user.id);
+      if(error) throw error;
+    }else{
+      const {error}=await supabaseClient
+        .from('app_data')
+        .insert({
+          user_id:user.id,
+          data_type:'config',
+          record_id:'company',
+          data:emptyConfig
+        });
+      if(error) throw error;
+    }
+
+    DB.mem.config=emptyConfig;
+    try{localStorage.setItem('mhs_config',JSON.stringify(emptyConfig));}catch(e){console.warn('No se pudo actualizar la copia local de configuración.',e);}
+    alert('Datos de empresa borrados y sincronizados correctamente.');
+    config();
+  }catch(e){
+    console.error('No se pudieron borrar los datos de empresa:',e);
+    alert('No se han podido borrar los datos de empresa en Supabase. No se ha modificado la configuración sincronizada.');
+  }
+}
+
+const _mhsConfigWithCompanySync=config;
+config=async function(){
+  await _mhsConfigWithCompanySync();
+  try{
+    const {data:{user}}=await supabaseClient.auth.getUser();
+    if(!mhsIsAdminUser(user)) return;
+    const actions=document.querySelector('.rowactions');
+    if(!actions || document.getElementById('mhsDeleteCompanyBtn')) return;
+    const btn=document.createElement('button');
+    btn.id='mhsDeleteCompanyBtn';
+    btn.type='button';
+    btn.className='secondary';
+    btn.textContent='BORRAR DATOS DE EMPRESA';
+    btn.onclick=mhsDeleteCompanyConfigAdmin;
+    actions.insertBefore(btn,actions.firstChild);
+  }catch(e){console.warn('No se pudo comprobar el usuario administrador para la configuración.',e);}
+};
