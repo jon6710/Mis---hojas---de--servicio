@@ -727,3 +727,116 @@ async function mhsBackgroundSync(){
 }
 window.addEventListener('focus',mhsBackgroundSync);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsBackgroundSync();});
+
+
+/* ===== SINCRONIZACION DE DATOS DE EMPRESA CON SUPABASE (28-10-2026) ===== */
+async function mhsLoadCompanyConfigFromSupabase(){
+  try{
+    const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+    if(authError) throw authError;
+    if(!user) return null;
+
+    const {data:rows,error}=await supabaseClient
+      .from('app_data')
+      .select('id,data,updated_at')
+      .eq('data_type','config')
+      .eq('record_id','company')
+      .order('updated_at',{ascending:false})
+      .limit(1);
+    if(error) throw error;
+
+    const row=(rows||[])[0];
+    if(row?.data && typeof row.data==='object'){
+      DB.set('config',row.data);
+      return row.data;
+    }
+    return null;
+  }catch(e){
+    console.error('No se pudieron cargar los datos de empresa desde Supabase:',e);
+    return null;
+  }
+}
+
+async function mhsSaveCompanyConfigToSupabase(configData){
+  const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+  if(authError) throw authError;
+  if(!user) throw new Error('No hay una sesión iniciada en Supabase.');
+
+  const {data:rows,error:readError}=await supabaseClient
+    .from('app_data')
+    .select('id')
+    .eq('data_type','config')
+    .eq('record_id','company')
+    .limit(1);
+  if(readError) throw readError;
+
+  const existing=(rows||[])[0];
+  if(existing?.id){
+    const {error}=await supabaseClient
+      .from('app_data')
+      .update({data:configData})
+      .eq('id',existing.id);
+    if(error) throw error;
+  }else{
+    const {error}=await supabaseClient
+      .from('app_data')
+      .insert({
+        user_id:user.id,
+        data_type:'config',
+        record_id:'company',
+        data:configData
+      });
+    if(error) throw error;
+  }
+  DB.set('config',configData);
+  return true;
+}
+
+const _mhsConfigLocalView=config;
+config=async function(){
+  // Si existe una configuración en la nube, tiene prioridad sobre la copia local.
+  // Si todavía no existe, se conserva la copia local del dispositivo hasta que el usuario pulse GUARDAR.
+  try{await mhsLoadCompanyConfigFromSupabase();}
+  catch(e){console.warn('Se mostrará la configuración local porque no se pudo leer Supabase.',e);}
+  _mhsConfigLocalView();
+};
+
+const _mhsSaveConfigLocal=saveConfig;
+saveConfig=async function(){
+  const btn=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='GUARDAR');
+  if(btn){btn.disabled=true;btn.textContent='GUARDANDO…';}
+  try{
+    let old=DB.get('config',{}),logo=$('#logoFile')?.files?.[0],sig=$('#signatureFile')?.files?.[0];
+    let c={
+      ...old,
+      name:val('coName'),
+      roesb:val('roesb'),
+      address:val('coAddr'),
+      phone:val('coPhone'),
+      email:val('coEmail'),
+      director:val('directorName')
+    };
+    if(logo)c.logo=await toDataURL(logo);
+    if(sig)c.signature=await toDataURL(sig);
+
+    await mhsSaveCompanyConfigToSupabase(c);
+    alert('Configuración de empresa guardada y sincronizada correctamente.');
+    home();
+  }catch(e){
+    console.error('No se pudieron sincronizar los datos de empresa:',e);
+    alert('No se han podido guardar los datos de empresa en Supabase. No se ha sobrescrito la configuración de la nube. Comprueba la conexión y vuelve a intentarlo.');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='GUARDAR';}
+  }
+};
+
+// Cuando la sesión esté disponible, descargar la configuración de empresa si ya existe en Supabase.
+supabaseClient.auth.onAuthStateChange((event,session)=>{
+  if(session && ['INITIAL_SESSION','SIGNED_IN','TOKEN_REFRESHED'].includes(event)){
+    setTimeout(()=>mhsLoadCompanyConfigFromSupabase(),0);
+  }
+});
+
+// Al volver a la aplicación desde otro dispositivo, actualizar también la configuración de empresa.
+window.addEventListener('focus',()=>{mhsLoadCompanyConfigFromSupabase();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsLoadCompanyConfigFromSupabase();});
