@@ -2,40 +2,26 @@ const SUPABASE_URL='https://hargvujvvhwmvodlbarh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_alaHLd7sOSjAWRzKWLjRHg_-igTTOx8';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 async function syncSheetsWithSupabase(){
-  const {data:{user}}=await supabaseClient.auth.getUser();
-  if(!user)return;
+  const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+  if(userError)throw userError;
+  if(!user)return [];
 
-  const localSheets=DB.get('sheets')||[];
-
+  // Supabase es la fuente principal de las hojas. Si una hoja se borra en otro
+  // dispositivo, NO se vuelve a subir desde una copia local antigua.
   const {data:remoteRows,error}=await supabaseClient
     .from('service_sheets')
-    .select('id,data,updated_at');
+    .select('id,data,updated_at')
+    .eq('user_id',user.id);
 
   if(error){
     console.error('Error cargando hojas desde Supabase:',error);
-    return;
+    throw error;
   }
 
-  if((remoteRows||[]).length===0 && localSheets.length){
-    const rows=localSheets.map(sheet=>({
-      id:sheet.id,
-      user_id:user.id,
-      data:sheet,
-      updated_at:new Date().toISOString()
-    }));
-
-    const {error:uploadError}=await supabaseClient
-      .from('service_sheets')
-      .upsert(rows);
-
-    if(uploadError){
-      console.error('Error subiendo hojas a Supabase:',uploadError);
-      return;
-    }
-  }else{
-    const remoteSheets=(remoteRows||[]).map(row=>row.data);
-    DB.set('sheets',remoteSheets);
-  }
+  const remoteSheets=(remoteRows||[]).map(row=>row.data).filter(Boolean);
+  const localOk=DB.set('sheets',remoteSheets);
+  if(localOk===false)console.warn('No se pudieron guardar todas las hojas en localStorage; se mantiene la copia en memoria y Supabase sigue siendo la fuente principal.');
+  return remoteSheets;
 }
 async function saveSheetToSupabase(sheet){
   const {data:{user}}=await supabaseClient.auth.getUser();
@@ -125,7 +111,9 @@ async function deleteServiceSheet(id){
   if(!confirm('Se eliminará la hoja de este dispositivo y de Supabase. Los archivos adjuntos asociados también se intentarán eliminar. ¿Continuar?'))return;
   try{
     const {data:{user},error:authError}=await supabaseClient.auth.getUser();if(authError)throw authError;if(!user)throw new Error('No hay sesión iniciada.');
-    const {error}=await supabaseClient.from('service_sheets').delete().eq('id',id).eq('user_id',user.id);if(error)throw error;
+    const {data:deletedRows,error}=await supabaseClient.from('service_sheets').delete().eq('id',id).eq('user_id',user.id).select('id');
+    if(error)throw error;
+    if(!(deletedRows||[]).some(row=>row.id===id))throw new Error('Supabase no confirmó el borrado de esta hoja. Revisa la política DELETE de service_sheets.');
     const ids=new Set();
     const addList=list=>{if(Array.isArray(list))for(const item of list){if(item&&item.id)ids.add(String(item.id));}};
     addList(sheet.attachments);addList(sheet.data?.attachments);addList(sheet.data?.cycleAttachments);addList(sheet.data?.planAttachments);addList(sheet.data?.photoAttachments);
