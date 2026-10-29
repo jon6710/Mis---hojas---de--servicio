@@ -981,28 +981,90 @@ async function mhsSaveClientCatalogToSupabase(clients,userId){
   }
   DB.set('clients',clients);return clients;
 }
+async function mhsLoadDeletedClientMarkers(userId){
+  let uid=typeof userId==='string'?userId:userId?.id;
+  if(!uid){
+    const {data:{user},error}=await supabaseClient.auth.getUser();
+    if(error)throw error;uid=user?.id;
+  }
+  if(!uid)return [];
+  const {data:rows,error}=await supabaseClient.from('app_data').select('data').eq('user_id',uid).eq('data_type','clients_deleted').eq('record_id','catalog').limit(1);
+  if(error)throw error;
+  const data=(rows||[])[0]?.data;
+  return Array.isArray(data)?data:[];
+}
+async function mhsSaveDeletedClientMarkers(markers,userId){
+  let uid=typeof userId==='string'?userId:userId?.id;
+  if(!uid){
+    const {data:{user},error}=await supabaseClient.auth.getUser();
+    if(error)throw error;uid=user?.id;
+  }
+  if(!uid)throw new Error('No hay una sesión iniciada en Supabase.');
+  const {data:rows,error:readError}=await supabaseClient.from('app_data').select('id').eq('user_id',uid).eq('data_type','clients_deleted').eq('record_id','catalog').limit(1);
+  if(readError)throw readError;
+  const existing=(rows||[])[0];
+  if(existing?.id){
+    const {error}=await supabaseClient.from('app_data').update({data:markers,updated_at:new Date().toISOString()}).eq('id',existing.id).eq('user_id',uid);
+    if(error)throw error;
+  }else{
+    const {error}=await supabaseClient.from('app_data').insert({user_id:uid,data_type:'clients_deleted',record_id:'catalog',data:markers});
+    if(error)throw error;
+  }
+}
+function mhsClientIsDeleted(c,markers){
+  const id=String(c?.id||'');
+  const sig=mhsClientSignature(c);
+  return (markers||[]).some(m=>(m?.id&&String(m.id)===id)||(m?.signature&&m.signature===sig));
+}
 async function mhsLoadClientCatalogFromSupabase(){
   const {data:{user},error:authError}=await supabaseClient.auth.getUser();
   if(authError)throw authError;
   if(!user)return DB.get('clients',[])||[];
   const local=DB.get('clients',[])||[];
-  const {data:rows,error}=await supabaseClient.from('app_data').select('id,data,updated_at').eq('user_id',user.id).eq('data_type','clients').eq('record_id','catalog').order('updated_at',{ascending:false}).limit(1);
+  const [{data:rows,error},markers]=await Promise.all([
+    supabaseClient.from('app_data').select('id,data,updated_at').eq('user_id',user.id).eq('data_type','clients').eq('record_id','catalog').order('updated_at',{ascending:false}).limit(1),
+    mhsLoadDeletedClientMarkers(user.id)
+  ]);
   if(error)throw error;
   const row=(rows||[])[0];
   const remote=Array.isArray(row?.data)?row.data:[];
-  const merged=mhsMergeClientCatalogs(remote,local);
+  const merged=mhsMergeClientCatalogs(remote,local).filter(c=>!mhsClientIsDeleted(c,markers));
   DB.set('clients',merged);
-  const remoteJson=JSON.stringify(mhsMergeClientCatalogs(remote,[]));
-  const mergedJson=JSON.stringify(merged);
-  if(!row || remoteJson!==mergedJson) await mhsSaveClientCatalogToSupabase(merged,user.id);
+  const remoteClean=mhsMergeClientCatalogs(remote,[]).filter(c=>!mhsClientIsDeleted(c,markers));
+  if(!row || JSON.stringify(remoteClean)!==JSON.stringify(merged)) await mhsSaveClientCatalogToSupabase(merged,user.id);
   return merged;
+}
+function mhsRenderClientListWithDelete(){
+  const a=DB.get('clients')||[];
+  app.innerHTML=`<div class="list"><div class="listhead"><button onclick="newClientModal()">＋ NUEVO CLIENTE</button><span class="spacer"></span><button class="secondary" onclick="home()">← INICIO</button></div><div class="notice">Eliminar un cliente lo quita del fichero compartido. Las hojas de servicio ya guardadas conservan sus datos históricos.</div><div class="card"><table><thead><tr><th>Nombre / Razón social</th><th>Contacto</th><th>Teléfono</th><th>Correo</th><th>Acciones</th></tr></thead><tbody>${a.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.contact)}</td><td>${esc(c.phone)}</td><td>${esc(c.email)}</td><td><button type="button" class="danger" style="padding:7px 10px;min-height:36px" onclick="deleteCatalogClient('${c.id}')">ELIMINAR</button></td></tr>`).join('')||'<tr><td colspan="5">No hay clientes.</td></tr>'}</tbody></table></div></div>`;
+}
+async function deleteCatalogClient(id){
+  try{
+    const clients=await mhsLoadClientCatalogFromSupabase();
+    const c=clients.find(x=>x.id===id);if(!c)return;
+    if(!confirm(`¿Eliminar “${c.name}” del fichero de clientes?`))return;
+    if(!confirm('Las hojas de servicio existentes conservarán los datos históricos de este cliente. ¿Continuar?'))return;
+    const {data:{user},error}=await supabaseClient.auth.getUser();
+    if(error)throw error;if(!user)throw new Error('No hay una sesión iniciada.');
+    const markers=await mhsLoadDeletedClientMarkers(user.id);
+    const marker={id:c.id,signature:mhsClientSignature(c),deleted_at:new Date().toISOString()};
+    const nextMarkers=[...markers.filter(m=>!(m?.id===marker.id||m?.signature===marker.signature)),marker];
+    await mhsSaveDeletedClientMarkers(nextMarkers,user.id);
+    const next=clients.filter(x=>x.id!==id);
+    await mhsSaveClientCatalogToSupabase(next,user.id);
+    DB.set('clients',next);
+    mhsRenderClientListWithDelete();
+  }catch(e){
+    console.error('No se pudo eliminar el cliente compartido:',e);
+    alert('No se ha podido confirmar el borrado del cliente en Supabase. No se ha eliminado de este dispositivo.');
+  }
 }
 
 const _mhsClientListLocal=clientList;
 clientList=async function(){
   try{await mhsLoadClientCatalogFromSupabase();}
   catch(e){console.error('No se pudo sincronizar el catálogo de clientes:',e);alert('No se han podido actualizar los clientes compartidos. Comprueba la conexión e inténtalo de nuevo.');}
-  _mhsClientListLocal();
+  mhsRenderClientListWithDelete();
 };
 
 const _mhsPickClientLocal=pickClient;
@@ -1021,7 +1083,7 @@ saveClientModal=async function(){
     await mhsSaveClientCatalogToSupabase(clients);
     if(current){current.client={...c};delete current.client.id;}
     closeModal();
-    current?editSheet():_mhsClientListLocal();
+    current?editSheet():mhsRenderClientListWithDelete();
   }catch(e){
     console.error('No se pudo guardar el cliente compartido:',e);
     alert('No se ha podido sincronizar el cliente. Comprueba la conexión y vuelve a intentarlo.');
@@ -1031,7 +1093,7 @@ saveClientModal=async function(){
 async function mhsRefreshClientsOnReturn(){
   const firstButton=app.querySelector('.listhead button');
   if(!firstButton || !firstButton.textContent.includes('NUEVO CLIENTE'))return;
-  try{await mhsLoadClientCatalogFromSupabase();_mhsClientListLocal();}
+  try{await mhsLoadClientCatalogFromSupabase();mhsRenderClientListWithDelete();}
   catch(e){console.warn('Sincronización de clientes pendiente:',e);}
 }
 window.addEventListener('focus',mhsRefreshClientsOnReturn);
