@@ -429,12 +429,8 @@ async function updateRecoveredPassword(){
   loginView();
 }
 async function mhsSyncSheetsAfterStartup(){
-  try{
-    await syncSheetsWithSupabase();
-    if(document.getElementById('sheetRows')) renderSheetRows();
-  }catch(e){
-    console.warn('Sincronización inicial de hojas pendiente:',e);
-  }
+  // La interfaz se muestra primero; la sincronización se hace después sin bloquear.
+  setTimeout(()=>mhsBackgroundSync(true),300);
 }
 async function startApp(){
   try{
@@ -760,28 +756,31 @@ editSheet=function(id){
   }
 };
 
-// Al entrar en la lista de hojas, siempre se descarga primero la version actual de Supabase.
+// La lista de hojas se pinta al instante con la copia local y se actualiza en segundo plano.
 const _mhsSheetListWithImportExport=sheetList;
-sheetList=async function(){
-  try{await syncSheetsWithSupabase();}
-  catch(e){console.error('No se pudieron actualizar las hojas antes de mostrar la lista:',e);}
+sheetList=function(){
   _mhsSheetListWithImportExport();
+  setTimeout(()=>mhsBackgroundSync(),0);
 };
 
 let _mhsBackgroundSyncBusy=false;
-async function mhsBackgroundSync(){
+let _mhsLastBackgroundSync=0;
+async function mhsBackgroundSync(force=false){
   if(_mhsBackgroundSyncBusy) return;
   if(document.querySelector('.sheet')) return; // no pisar una hoja mientras se esta editando
+  const now=Date.now();
+  if(!force && now-_mhsLastBackgroundSync<15000) return; // evita sincronizaciones repetidas al cambiar de vista/foco
   _mhsBackgroundSyncBusy=true;
   try{
     const {data}=await supabaseClient.auth.getSession();
     if(!data?.session) return;
     await syncSheetsWithSupabase();
+    _mhsLastBackgroundSync=Date.now();
     if(document.getElementById('sheetRows')) renderSheetRows();
   }catch(e){console.warn('Sincronizacion automatica pendiente:',e);}
   finally{_mhsBackgroundSyncBusy=false;}
 }
-window.addEventListener('focus',mhsBackgroundSync);
+window.addEventListener('focus',()=>mhsBackgroundSync());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsBackgroundSync();});
 
 
