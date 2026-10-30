@@ -222,10 +222,33 @@ function useProduct(id){snapshotForm();let p=DB.get('products').find(x=>x.id===i
 function attachmentSection(key,title,photosOnly=false){let a=(key==='attachments'?current.attachments:(current.data[key]||[]));let accept=photosOnly?'image/*':'image/*,.pdf';return `<div class="actions"><button type="button" onclick="document.getElementById('file_${key}').click()">${photosOnly?'📷 HACER / ELEGIR FOTO':'📎 HACER FOTO / ELEGIR FOTO / AÑADIR PDF'}</button><input id="file_${key}" class="hidden" type="file" accept="${accept}" ${photosOnly?'capture="environment"':''} multiple onchange="addAttachments('${key}',this.files)"></div><div>${a.map(x=>`<div class="attachrow"><b>${esc(x.name)}</b> — ${esc(x.date||'')} <span class="spacer"></span><button class="secondary" type="button" onclick="openAttachment('${x.id}')">VER</button><button class="secondary" type="button" onclick="shareAttachment('${x.id}')">COMPARTIR</button><button class="danger" type="button" onclick="deleteAttachment('${key}','${x.id}')">ELIMINAR</button></div>`).join('')||'<div class="notice">Sin archivos adjuntos.</div>'}</div>`}
 function fileDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open('mhs_files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 async function putFile(id,file){
+  if(!file) throw new Error('No se ha recibido ningún archivo.');
+
+  // Safari/iPhone puede entregar un File válido al selector pero fallar al
+  // serializarlo directamente como cuerpo de la petición a Storage. Leemos
+  // explícitamente sus bytes y subimos un Blob real para evitar respuestas
+  // "No content provided".
+  let buffer;
+  try{
+    if(typeof file.arrayBuffer==='function') buffer=await file.arrayBuffer();
+    else buffer=await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(r.result);
+      r.onerror=()=>reject(r.error||new Error('No se ha podido leer la fotografía.'));
+      r.readAsArrayBuffer(file);
+    });
+  }catch(e){
+    throw new Error('No se ha podido leer el contenido de la fotografía: '+(e?.message||e));
+  }
+  if(!buffer || !buffer.byteLength) throw new Error('La fotografía seleccionada está vacía. Prueba con ELEGIR FOTO de nuevo.');
+
+  const mime=file.type||'application/octet-stream';
+  const uploadBlob=new Blob([buffer],{type:mime});
+
   const db=await fileDB();
   await new Promise((resolve,reject)=>{
     const tx=db.transaction('files','readwrite');
-    tx.objectStore('files').put(file,id);
+    tx.objectStore('files').put(uploadBlob,id);
     tx.oncomplete=resolve;
     tx.onerror=()=>reject(tx.error);
     tx.onabort=()=>reject(tx.error||new Error('Se canceló el guardado local del adjunto.'));
@@ -238,9 +261,9 @@ async function putFile(id,file){
   const path=`${user.id}/${id}`;
   const {error}=await supabaseClient.storage
     .from('adjuntos')
-    .upload(path,file,{
+    .upload(path,uploadBlob,{
       upsert:true,
-      contentType:file.type||'application/octet-stream'
+      contentType:mime
     });
 
   if(error){
