@@ -1354,6 +1354,9 @@ function mhsDashboardRender(){
     <section class="mhs-dash-section"><div class="mhs-recent-head"><h2>Hojas recientes</h2><button class="secondary" onclick="showView('sheets')">VER TODAS</button></div>
       ${recent.length?`<div class="mhs-recent-list">${recent.map(s=>`<button class="mhs-recent-row" onclick="showView('edit','${esc(s.id)}')"><span class="mhs-recent-main"><b>${esc(s.number||'Sin número')}</b><small>${esc(s.client?.name||'Sin cliente')} · ${mhsDashboardDate(s.date)}</small></span><span class="badge">${esc(s.status||'PENDIENTE')}</span></button>`).join('')}</div>`:'<p class="mhs-empty">Todavía no hay hojas de servicio registradas.</p>'}
     </section>
+    <div class="mhs-dash-logout" style="display:flex;justify-content:center;margin:18px 0 8px">
+      <button type="button" class="secondary" id="mhsLogout" onclick="logoutApp()">SALIR DE LA APLICACIÓN</button>
+    </div>
   </div>`;
 }
 home=function(){
