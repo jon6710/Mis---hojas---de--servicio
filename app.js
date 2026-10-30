@@ -429,12 +429,8 @@ async function updateRecoveredPassword(){
   loginView();
 }
 async function mhsSyncSheetsAfterStartup(){
-  try{
-    await syncSheetsWithSupabase();
-    if(document.getElementById('sheetRows')) renderSheetRows();
-  }catch(e){
-    console.warn('Sincronización inicial de hojas pendiente:',e);
-  }
+  // La interfaz se muestra primero; la sincronización se hace después sin bloquear.
+  setTimeout(()=>mhsBackgroundSync(true),300);
 }
 async function startApp(){
   try{
@@ -604,8 +600,23 @@ sheetList=function(){
   }
 };
 /* Compartir PDF: usa la hoja nativa del dispositivo para compartir el archivo real cuando esté disponible. */
+let mhsHtml2PdfPromise=null;
+function mhsEnsureHtml2Pdf(){
+  if(typeof html2pdf!=='undefined') return Promise.resolve();
+  if(mhsHtml2PdfPromise) return mhsHtml2PdfPromise;
+  mhsHtml2PdfPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.crossOrigin='anonymous';
+    script.referrerPolicy='no-referrer';
+    script.onload=()=>typeof html2pdf!=='undefined'?resolve():reject(new Error('La librería PDF no se ha inicializado.'));
+    script.onerror=()=>reject(new Error('No se ha podido descargar el generador PDF.'));
+    document.head.appendChild(script);
+  }).catch(e=>{mhsHtml2PdfPromise=null;throw e;});
+  return mhsHtml2PdfPromise;
+}
 async function mhsBuildPdfBlob(sheet, asCertificate=false){
-  if(typeof html2pdf==='undefined') throw new Error('No se ha podido cargar el generador PDF. Comprueba la conexión y vuelve a intentarlo.');
+  await mhsEnsureHtml2Pdf();
   const s=JSON.parse(JSON.stringify(sheet));
   await prepareFurniturePdfPhotos(s); await prepareInsituPdfPhotos(s); await prepareAutoclavePdfPhotos(s); await prepareTermitePdfPlan(s); await prepareTermitePdfPhotos(s);
   const css=pdfBaseCss()+`@page{size:A4 portrait;margin:7mm}body{width:auto;height:auto;overflow:visible;margin:0}.page{width:196mm;min-height:283mm;overflow:visible;padding-bottom:10mm;margin:auto}.head{grid-template-columns:42mm 1fr 40mm}`;
@@ -745,28 +756,31 @@ editSheet=function(id){
   }
 };
 
-// Al entrar en la lista de hojas, siempre se descarga primero la version actual de Supabase.
+// La lista de hojas se pinta al instante con la copia local y se actualiza en segundo plano.
 const _mhsSheetListWithImportExport=sheetList;
-sheetList=async function(){
-  try{await syncSheetsWithSupabase();}
-  catch(e){console.error('No se pudieron actualizar las hojas antes de mostrar la lista:',e);}
+sheetList=function(){
   _mhsSheetListWithImportExport();
+  setTimeout(()=>mhsBackgroundSync(),0);
 };
 
 let _mhsBackgroundSyncBusy=false;
-async function mhsBackgroundSync(){
+let _mhsLastBackgroundSync=0;
+async function mhsBackgroundSync(force=false){
   if(_mhsBackgroundSyncBusy) return;
   if(document.querySelector('.sheet')) return; // no pisar una hoja mientras se esta editando
+  const now=Date.now();
+  if(!force && now-_mhsLastBackgroundSync<15000) return; // evita sincronizaciones repetidas al cambiar de vista/foco
   _mhsBackgroundSyncBusy=true;
   try{
     const {data}=await supabaseClient.auth.getSession();
     if(!data?.session) return;
     await syncSheetsWithSupabase();
+    _mhsLastBackgroundSync=Date.now();
     if(document.getElementById('sheetRows')) renderSheetRows();
   }catch(e){console.warn('Sincronizacion automatica pendiente:',e);}
   finally{_mhsBackgroundSyncBusy=false;}
 }
-window.addEventListener('focus',mhsBackgroundSync);
+window.addEventListener('focus',()=>mhsBackgroundSync());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsBackgroundSync();});
 
 
