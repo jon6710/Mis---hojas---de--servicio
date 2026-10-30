@@ -222,10 +222,33 @@ function useProduct(id){snapshotForm();let p=DB.get('products').find(x=>x.id===i
 function attachmentSection(key,title,photosOnly=false){let a=(key==='attachments'?current.attachments:(current.data[key]||[]));let accept=photosOnly?'image/*':'image/*,.pdf';return `<div class="actions"><button type="button" onclick="document.getElementById('file_${key}').click()">${photosOnly?'📷 HACER / ELEGIR FOTO':'📎 HACER FOTO / ELEGIR FOTO / AÑADIR PDF'}</button><input id="file_${key}" class="hidden" type="file" accept="${accept}" ${photosOnly?'capture="environment"':''} multiple onchange="addAttachments('${key}',this.files)"></div><div>${a.map(x=>`<div class="attachrow"><b>${esc(x.name)}</b> — ${esc(x.date||'')} <span class="spacer"></span><button class="secondary" type="button" onclick="openAttachment('${x.id}')">VER</button><button class="secondary" type="button" onclick="shareAttachment('${x.id}')">COMPARTIR</button><button class="danger" type="button" onclick="deleteAttachment('${key}','${x.id}')">ELIMINAR</button></div>`).join('')||'<div class="notice">Sin archivos adjuntos.</div>'}</div>`}
 function fileDB(){return new Promise((resolve,reject)=>{let r=indexedDB.open('mhs_files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 async function putFile(id,file){
+  if(!file) throw new Error('No se ha recibido ningún archivo.');
+
+  // Safari/iPhone puede entregar un File válido al selector pero fallar al
+  // serializarlo directamente como cuerpo de la petición a Storage. Leemos
+  // explícitamente sus bytes y subimos un Blob real para evitar respuestas
+  // "No content provided".
+  let buffer;
+  try{
+    if(typeof file.arrayBuffer==='function') buffer=await file.arrayBuffer();
+    else buffer=await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(r.result);
+      r.onerror=()=>reject(r.error||new Error('No se ha podido leer la fotografía.'));
+      r.readAsArrayBuffer(file);
+    });
+  }catch(e){
+    throw new Error('No se ha podido leer el contenido de la fotografía: '+(e?.message||e));
+  }
+  if(!buffer || !buffer.byteLength) throw new Error('La fotografía seleccionada está vacía. Prueba con ELEGIR FOTO de nuevo.');
+
+  const mime=file.type||'application/octet-stream';
+  const uploadBlob=new Blob([buffer],{type:mime});
+
   const db=await fileDB();
   await new Promise((resolve,reject)=>{
     const tx=db.transaction('files','readwrite');
-    tx.objectStore('files').put(file,id);
+    tx.objectStore('files').put(uploadBlob,id);
     tx.oncomplete=resolve;
     tx.onerror=()=>reject(tx.error);
     tx.onabort=()=>reject(tx.error||new Error('Se canceló el guardado local del adjunto.'));
@@ -236,16 +259,44 @@ async function putFile(id,file){
   if(!user) throw new Error('No hay una sesión iniciada en Supabase.');
 
   const path=`${user.id}/${id}`;
-  const {error}=await supabaseClient.storage
-    .from('adjuntos')
-    .upload(path,file,{
-      upsert:true,
-      contentType:file.type||'application/octet-stream'
-    });
+  const ua=navigator.userAgent||'';
+  const isiOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 
-  if(error){
-    console.error('Error subiendo adjunto a Supabase Storage:',error);
-    throw error;
+  // Android/ordenador: conservar la ruta del SDK que ya funciona.
+  // iPhone/iPad: Safari puede entregar correctamente el File pero storage-js
+  // acaba enviando una petición sin cuerpo ("No content provided"). En iOS
+  // mandamos los bytes directamente a Supabase Storage.
+  if(!isiOS){
+    const {error}=await supabaseClient.storage
+      .from('adjuntos')
+      .upload(path,uploadBlob,{upsert:true,contentType:mime});
+    if(!error)return true;
+    console.warn('Fallo la subida por SDK; se intentará subida binaria directa:',error);
+    if(!String(error?.message||error).toLowerCase().includes('no content provided'))throw error;
+  }
+
+  const {data:sessionData,error:sessionError}=await supabaseClient.auth.getSession();
+  if(sessionError)throw sessionError;
+  const token=sessionData?.session?.access_token;
+  if(!token)throw new Error('No hay una sesión activa para subir la fotografía.');
+
+  const encodedPath=path.split('/').map(encodeURIComponent).join('/');
+  const response=await fetch(`${SUPABASE_URL}/storage/v1/object/adjuntos/${encodedPath}`,{
+    method:'POST',
+    headers:{
+      'Authorization':`Bearer ${token}`,
+      'apikey':SUPABASE_KEY,
+      'Content-Type':mime,
+      'x-upsert':'true',
+      'cache-control':'3600'
+    },
+    body:new Uint8Array(buffer)
+  });
+  if(!response.ok){
+    let detail='';
+    try{detail=await response.text()}catch(_e){}
+    console.error('Error en subida binaria directa a Supabase Storage:',response.status,detail);
+    throw new Error(detail||`Error de almacenamiento (${response.status})`);
   }
   return true;
 }
