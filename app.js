@@ -1317,3 +1317,58 @@ window.addEventListener('focus',mhsRefreshProductCatalogOnReturn);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')mhsRefreshProductCatalogOnReturn();});
 
 /* REVISION 2026-10-29: cliente puntual / contado sin alta en catálogo; campos opcionales en hoja. */
+
+
+/* ===== PANEL DE CONTROL INICIAL - PRUEBA AISLADA =====
+   Solo lectura: consulta los catálogos existentes y no escribe ni modifica datos.
+   Los contadores usan hojas/clientes reales cargados desde Supabase.
+*/
+const mhsOriginalHomeDashboard = home;
+function mhsDashboardDate(value){
+  if(!value)return '—';
+  const d=new Date(value+'T00:00:00');
+  return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('es-ES');
+}
+function mhsDashboardRender(){
+  const sheets=Array.isArray(DB.get('sheets',[]))?DB.get('sheets',[]):[];
+  const clients=Array.isArray(DB.get('clients',[]))?DB.get('clients',[]):[];
+  const pending=sheets.filter(s=>String(s.status||'').toUpperCase()==='PENDIENTE').length;
+  const inProgress=sheets.filter(s=>String(s.status||'').toUpperCase()==='EN PROCESO').length;
+  const finished=sheets.filter(s=>String(s.status||'').toUpperCase()==='FINALIZADA').length;
+  const recent=[...sheets].sort((a,b)=>String(b.modified||b.date||'').localeCompare(String(a.modified||a.date||''))).slice(0,5);
+  app.innerHTML=`<div class="mhs-dashboard" id="mhsDashboard">
+    <div class="mhs-dash-title"><div><p class="mhs-eyebrow">MIS HOJAS DE SERVICIO</p><h1>Panel de control</h1><p class="mhs-subtitle">Resumen de actividad y accesos directos</p></div><span class="mhs-live" id="mhsDashSync">Datos del dispositivo</span></div>
+    <button class="newbtn" onclick="showView('new')">＋ NUEVA HOJA DE SERVICIO</button>
+    <section class="mhs-metrics" aria-label="Resumen de hojas y clientes">
+      <article class="mhs-metric"><span class="mhs-metric-icon">📋</span><strong>${pending}</strong><span>Hojas pendientes</span></article>
+      <article class="mhs-metric"><span class="mhs-metric-icon">⚙️</span><strong>${inProgress}</strong><span>En proceso</span></article>
+      <article class="mhs-metric"><span class="mhs-metric-icon">✓</span><strong>${finished}</strong><span>Hojas finalizadas</span></article>
+      <article class="mhs-metric"><span class="mhs-metric-icon">👥</span><strong>${clients.length}</strong><span>Clientes registrados</span></article>
+    </section>
+    <section class="mhs-dash-section"><h2>Accesos rápidos</h2><div class="mhs-shortcuts">
+      <button class="mhs-shortcut" onclick="showView('sheets')"><span>📋</span><b>Hojas de servicio</b><small>Consultar y gestionar</small></button>
+      <button class="mhs-shortcut" onclick="showView('clients')"><span>👥</span><b>Clientes</b><small>Fichero de clientes</small></button>
+      <button class="mhs-shortcut" onclick="showView('products')"><span>🧴</span><b>Productos</b><small>Catálogo de productos</small></button>
+      <button class="mhs-shortcut" onclick="showView('certs')"><span>📄</span><b>Certificados</b><small>Generar y consultar</small></button>
+    </div></section>
+    <section class="mhs-dash-section"><div class="mhs-recent-head"><h2>Hojas recientes</h2><button class="secondary" onclick="showView('sheets')">VER TODAS</button></div>
+      ${recent.length?`<div class="mhs-recent-list">${recent.map(s=>`<button class="mhs-recent-row" onclick="showView('edit','${esc(s.id)}')"><span class="mhs-recent-main"><b>${esc(s.number||'Sin número')}</b><small>${esc(s.client?.name||'Sin cliente')} · ${mhsDashboardDate(s.date)}</small></span><span class="badge">${esc(s.status||'PENDIENTE')}</span></button>`).join('')}</div>`:'<p class="mhs-empty">Todavía no hay hojas de servicio registradas.</p>'}
+    </section>
+  </div>`;
+}
+home=function(){
+  mhsDashboardRender();
+  // Actualiza los datos en segundo plano desde Supabase, sin alterar registros.
+  (async()=>{
+    const jobs=[];
+    if(typeof syncSheetsWithSupabase==='function')jobs.push(syncSheetsWithSupabase());
+    if(typeof mhsLoadClientCatalogFromSupabase==='function')jobs.push(mhsLoadClientCatalogFromSupabase());
+    if(typeof mhsLoadProductCatalogFromSupabase==='function')jobs.push(mhsLoadProductCatalogFromSupabase());
+    const results=await Promise.allSettled(jobs);
+    if(!document.getElementById('mhsDashboard'))return;
+    mhsDashboardRender();
+    const failed=results.some(r=>r.status==='rejected');
+    const status=document.getElementById('mhsDashSync');
+    if(status)status.textContent=failed?'No se pudo actualizar todo · mostrando datos disponibles':'✓ Datos actualizados';
+  })();
+};
