@@ -259,16 +259,44 @@ async function putFile(id,file){
   if(!user) throw new Error('No hay una sesión iniciada en Supabase.');
 
   const path=`${user.id}/${id}`;
-  const {error}=await supabaseClient.storage
-    .from('adjuntos')
-    .upload(path,uploadBlob,{
-      upsert:true,
-      contentType:mime
-    });
+  const ua=navigator.userAgent||'';
+  const isiOS=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 
-  if(error){
-    console.error('Error subiendo adjunto a Supabase Storage:',error);
-    throw error;
+  // Android/ordenador: conservar la ruta del SDK que ya funciona.
+  // iPhone/iPad: Safari puede entregar correctamente el File pero storage-js
+  // acaba enviando una petición sin cuerpo ("No content provided"). En iOS
+  // mandamos los bytes directamente a Supabase Storage.
+  if(!isiOS){
+    const {error}=await supabaseClient.storage
+      .from('adjuntos')
+      .upload(path,uploadBlob,{upsert:true,contentType:mime});
+    if(!error)return true;
+    console.warn('Fallo la subida por SDK; se intentará subida binaria directa:',error);
+    if(!String(error?.message||error).toLowerCase().includes('no content provided'))throw error;
+  }
+
+  const {data:sessionData,error:sessionError}=await supabaseClient.auth.getSession();
+  if(sessionError)throw sessionError;
+  const token=sessionData?.session?.access_token;
+  if(!token)throw new Error('No hay una sesión activa para subir la fotografía.');
+
+  const encodedPath=path.split('/').map(encodeURIComponent).join('/');
+  const response=await fetch(`${SUPABASE_URL}/storage/v1/object/adjuntos/${encodedPath}`,{
+    method:'POST',
+    headers:{
+      'Authorization':`Bearer ${token}`,
+      'apikey':SUPABASE_KEY,
+      'Content-Type':mime,
+      'x-upsert':'true',
+      'cache-control':'3600'
+    },
+    body:new Uint8Array(buffer)
+  });
+  if(!response.ok){
+    let detail='';
+    try{detail=await response.text()}catch(_e){}
+    console.error('Error en subida binaria directa a Supabase Storage:',response.status,detail);
+    throw new Error(detail||`Error de almacenamiento (${response.status})`);
   }
   return true;
 }
