@@ -604,8 +604,23 @@ sheetList=function(){
   }
 };
 /* Compartir PDF: usa la hoja nativa del dispositivo para compartir el archivo real cuando esté disponible. */
+let mhsHtml2PdfPromise=null;
+function mhsEnsureHtml2Pdf(){
+  if(typeof html2pdf!=='undefined') return Promise.resolve();
+  if(mhsHtml2PdfPromise) return mhsHtml2PdfPromise;
+  mhsHtml2PdfPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.crossOrigin='anonymous';
+    script.referrerPolicy='no-referrer';
+    script.onload=()=>typeof html2pdf!=='undefined'?resolve():reject(new Error('La librería PDF no se ha inicializado.'));
+    script.onerror=()=>reject(new Error('No se ha podido descargar el generador PDF.'));
+    document.head.appendChild(script);
+  }).catch(e=>{mhsHtml2PdfPromise=null;throw e;});
+  return mhsHtml2PdfPromise;
+}
 async function mhsBuildPdfBlob(sheet, asCertificate=false){
-  if(typeof html2pdf==='undefined') throw new Error('No se ha podido cargar el generador PDF. Comprueba la conexión y vuelve a intentarlo.');
+  await mhsEnsureHtml2Pdf();
   const s=JSON.parse(JSON.stringify(sheet));
   await prepareFurniturePdfPhotos(s); await prepareInsituPdfPhotos(s); await prepareAutoclavePdfPhotos(s); await prepareTermitePdfPlan(s); await prepareTermitePdfPhotos(s);
   const css=pdfBaseCss()+`@page{size:A4 portrait;margin:7mm}body{width:auto;height:auto;overflow:visible;margin:0}.page{width:196mm;min-height:283mm;overflow:visible;padding-bottom:10mm;margin:auto}.head{grid-template-columns:42mm 1fr 40mm}`;
