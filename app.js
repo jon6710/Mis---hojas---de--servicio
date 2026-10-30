@@ -1375,3 +1375,71 @@ home=function(){
     if(status)status.textContent=failed?'No se pudo actualizar todo · mostrando datos disponibles':'✓ Datos actualizados';
   })();
 };
+
+/* ===== BUSCADOR AVANZADO DE HOJAS - PRUEBA AISLADA =====
+   Filtros combinables: texto, fecha, tipo y estado. Solo lectura/filtrado.
+*/
+function mhsSearchOption(value,label,current=''){
+  return `<option value="${esc(value)}" ${String(current)===String(value)?'selected':''}>${esc(label)}</option>`;
+}
+function sheetList(){
+  app.innerHTML=`<div class="list">
+    <div class="listhead">
+      <button onclick="showView('new')">＋ NUEVA HOJA</button>
+      <span class="spacer"></span>
+      <button class="secondary" onclick="home()">← INICIO</button>
+    </div>
+    <div class="card" style="padding:16px;margin-bottom:14px">
+      <h2 style="margin-top:0">Buscar hojas de servicio</h2>
+      <div class="formgrid">
+        <div class="field full"><label>Texto libre</label><input id="search" placeholder="N.º de hoja, cliente, fecha o tipo" oninput="renderSheetRows()"></div>
+        <div class="field"><label>Fecha desde</label><input id="searchFrom" type="date" onchange="renderSheetRows()"></div>
+        <div class="field"><label>Fecha hasta</label><input id="searchTo" type="date" onchange="renderSheetRows()"></div>
+        <div class="field"><label>Tipo de servicio</label><select id="searchType" onchange="renderSheetRows()">
+          ${mhsSearchOption('','Todos los tipos')}
+          ${mhsSearchOption('autoclave','AUTOCLAVE')}
+          ${mhsSearchOption('insitu','MADERA IN SITU')}
+          ${mhsSearchOption('termitas','TERMITAS')}
+          ${mhsSearchOption('ddd','DDD')}
+          ${mhsSearchOption('mobiliario','MOBILIARIO')}
+        </select></div>
+        <div class="field"><label>Estado</label><select id="searchStatus" onchange="renderSheetRows()">
+          ${mhsSearchOption('','Todos los estados')}
+          ${mhsSearchOption('PENDIENTE','PENDIENTE')}
+          ${mhsSearchOption('EN PROCESO','EN PROCESO')}
+          ${mhsSearchOption('FINALIZADA','FINALIZADA')}
+        </select></div>
+      </div>
+      <div class="rowactions" style="justify-content:space-between;align-items:center">
+        <div id="searchCount" class="notice" style="margin:0">0 resultados</div>
+        <button type="button" class="secondary" onclick="mhsClearSheetFilters()">LIMPIAR FILTROS</button>
+      </div>
+    </div>
+    <div class="card"><div class="tablewrap"><table><thead><tr><th>N.º hoja</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Estado</th></tr></thead><tbody id="sheetRows"></tbody></table></div></div>
+  </div>`;
+  renderSheetRows();
+}
+function mhsClearSheetFilters(){
+  ['search','searchFrom','searchTo','searchType','searchStatus'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderSheetRows();
+}
+function renderSheetRows(){
+  const q=($('#search')?.value||'').trim().toLowerCase();
+  const from=$('#searchFrom')?.value||'';
+  const to=$('#searchTo')?.value||'';
+  const type=$('#searchType')?.value||'';
+  const status=($('#searchStatus')?.value||'').toUpperCase();
+  let a=(DB.get('sheets',[])||[]).filter(x=>{
+    const haystack=`${x.number||''} ${x.date||''} ${x.client?.name||''} ${types[x.type]||x.type||''} ${x.status||''}`.toLowerCase();
+    if(q&&!haystack.includes(q))return false;
+    if(from&&String(x.date||'')<from)return false;
+    if(to&&String(x.date||'')>to)return false;
+    if(type&&String(x.type||'')!==type)return false;
+    if(status&&String(x.status||'').toUpperCase()!==status)return false;
+    return true;
+  });
+  a.sort((x,y)=>String(y.date||'').localeCompare(String(x.date||''))||String(y.modified||'').localeCompare(String(x.modified||'')));
+  const count=$('#searchCount');
+  if(count)count.textContent=`${a.length} ${a.length===1?'resultado':'resultados'}`;
+  $('#sheetRows').innerHTML=a.map(x=>`<tr><td onclick="showView('edit','${x.id}')" style="cursor:pointer"><b>${esc(x.number)}</b></td><td onclick="showView('edit','${x.id}')" style="cursor:pointer">${esc(x.date)}</td><td onclick="showView('edit','${x.id}')" style="cursor:pointer">${esc(x.client?.name||'')}</td><td onclick="showView('edit','${x.id}')" style="cursor:pointer">${esc(types[x.type]||x.type||'')}</td><td><span class="badge">${esc(x.status||'')}</span> <button type="button" class="danger" style="padding:7px 10px;min-height:36px" onclick="deleteServiceSheet('${x.id}')">ELIMINAR</button></td></tr>`).join('')||'<tr><td colspan="5">No hay hojas que coincidan con los filtros.</td></tr>';
+}
