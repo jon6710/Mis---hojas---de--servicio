@@ -1,25 +1,33 @@
-ACTUALIZACIÓN RESPONSIVE - MIS HOJAS DE SERVICIO
+MHS v37 - NUEVO FORMULARIO AUTOCLAVE
 
-Este paquete NO modifica app.js ni tus datos/lógica.
+Rama recomendada: autoclave-v37
 
-Sustituye en la raíz del repositorio estos 3 archivos:
+Archivos a subir en la raíz del repositorio:
 - index.html
-- styles.css
 - sw.js
+- autoclave-v37.js
+- autoclave-v37.css
+- LEEME_PRIMERO.txt
 
-Qué mejora:
-- Escritorio, tablet y móvil.
-- Formularios apilados correctamente en pantallas pequeñas.
-- Tablas con desplazamiento horizontal seguro.
-- Cabecera y barra de herramientas adaptadas.
-- Botones más cómodos para pantalla táctil.
-- Modales adaptados a la altura real del móvil.
-- Compatibilidad con notch/safe-area en iPhone/iPad.
-- Panel principal adaptado a distintos anchos.
-- Se mantiene intacta la lógica de app.js.
-- Se sube la caché del service worker a mhs-v35-responsive para forzar la actualización del CSS.
+No sustituye app.js ni styles.css.
 
-Después de subir los archivos a GitHub Pages, si el móvil muestra la versión anterior:
-1. Cierra la web/PWA completamente.
-2. Vuelve a abrirla.
-3. Si aún conserva la anterior, recarga la página una vez.
+Novedades del formulario Autoclave:
+1. Datos generales del cliente.
+2. Albarán del cliente con foto/PDF.
+3. Medición propia con adjunto.
+4. Control de volumen: m3 declarado, comprobado y forma de comprobación.
+5. Cálculo automático de diferencia en m3 y porcentaje.
+6. Resultado de comprobación y aviso visual orientativo cuando supera el 2%.
+7. m3 a facturar, editable si hay acuerdo comercial.
+8. Fotos adicionales del proceso.
+9. Validaciones específicas antes de finalizar.
+10. PDF de autoclave adaptado al nuevo formulario.
+11. Diseño responsive para ordenador, tablet y móvil.
+12. Caché actualizada a mhs-v37-autoclave.
+
+Prueba recomendada:
+1. Crear rama autoclave-v37 desde main.
+2. Subir estos 5 archivos.
+3. Publicar temporalmente la rama en GitHub Pages.
+4. Crear una hoja AUTOCLAVE y probar: guardar, adjuntar, cálculo, finalizar y PDF.
+5. Si todo funciona, Pull Request hacia main.
