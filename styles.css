@@ -118,3 +118,70 @@
   .toolbar{top:0}
   .modalbox{max-height:94dvh}
 }
+
+/* ===== MEJORA MÓVIL v36 ===== */
+/* Mantiene la lógica existente: solo mejora densidad, tactilidad y lectura. */
+@media(max-width:700px){
+  /* Acordeones: cabeceras más claras, grandes y fáciles de pulsar */
+  .accHead{min-height:50px;position:relative;padding-right:12px;-webkit-tap-highlight-color:transparent}
+  .accHead:active{background:#f1f7f3}
+  .accHead .state{flex:0 1 auto;line-height:1.15}
+  .accBody{background:#fff}
+
+  /* Menos altura desperdiciada en campos y separación más limpia */
+  .formgrid{gap:10px}
+  .field{margin:0}
+  .field label{font-size:11.5px;margin-bottom:4px}
+  .field textarea{min-height:76px}
+
+  /* Adjuntos / fotos / PDFs más compactos */
+  .attachrow{padding:7px 0;gap:6px}
+  .attachrow img{width:64px;max-height:64px;object-fit:cover;border-radius:8px;flex:0 0 auto}
+  .attachrow .pdfhint{flex:1 1 150px;margin-left:0;font-size:12px;line-height:1.25}
+  .attachrow button{min-height:38px;padding:7px 9px}
+
+  /* Tablas: mejor pista visual de que se puede deslizar */
+  .tablewrap{border-radius:9px;box-shadow:inset -12px 0 12px -14px #17312755}
+  .tablewrap table{margin-top:6px}
+  th,td{padding:8px 7px;font-size:13px}
+
+  /* Botonera de acciones: prioriza el uso con pulgar */
+  .rowactions{gap:7px}
+  .rowactions button{font-size:13px;padding:10px 11px}
+  .rowactions .danger{order:20}
+
+  /* Mejor uso del ancho en avisos y estados */
+  .notice,.safety{font-size:13px;line-height:1.35;padding:10px}
+  .status{font-size:13px;padding:7px}
+
+  /* Modal casi a pantalla completa, pero conservando margen */
+  .modalbox{overscroll-behavior:contain}
+}
+
+@media(max-width:480px){
+  /* Cabecera y metadatos aún más compactos */
+  .top{gap:6px}
+  .sheetmeta{padding:9px}
+  .accHead{padding:11px 10px;font-size:13.5px}
+  .accHead .state{font-size:10.5px;max-width:42%}
+  .accBody{padding:10px}
+
+  /* Un botón por fila cuando el ancho es muy estrecho */
+  .rowactions button{flex-basis:100%}
+  .listhead button,.listhead label.secondary{flex-basis:100%}
+
+  /* Adjuntos en tarjetas compactas sin desbordes */
+  .attachrow{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center}
+  .attachrow button{grid-column:1/-1;width:100%}
+  .attachrow img{width:58px;max-height:58px}
+
+  /* Evita textos diminutos o cortes incómodos */
+  .woodtotal{white-space:normal}
+  .smallinput{width:82px!important}
+}
+
+@media(max-width:390px){
+  .toolbar button{font-size:.74rem;padding:8px 9px}
+  .brand b{max-width:180px}
+  .accHead .state{max-width:38%}
+}
