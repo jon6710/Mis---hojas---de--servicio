@@ -1,33 +1,17 @@
-MHS v37 - NUEVO FORMULARIO AUTOCLAVE
+MHS AUTOCLAVE v37.1
 
-Rama recomendada: autoclave-v37
+Cambios principales:
+- Los m³ a facturar se calculan SIEMPRE desde nuestra medición (m³ comprobados).
+- El campo de m³ a facturar queda bloqueado para evitar cambios accidentales.
+- El albarán del cliente y sus m³ son opcionales y sirven solo para comparación/trazabilidad.
+- Si el cliente no aporta albarán o volumen, la hoja puede finalizar igualmente.
+- Nuestra medición de m³ sí es obligatoria para finalizar.
+- El PDF deja constancia de que la facturación se basa siempre en nuestra medición.
+- Caché actualizada a v37.1 para forzar la carga de la versión nueva.
 
-Archivos a subir en la raíz del repositorio:
+Subir estos archivos a la rama autoclave-v37 sustituyendo los anteriores:
 - index.html
 - sw.js
 - autoclave-v37.js
 - autoclave-v37.css
 - LEEME_PRIMERO.txt
-
-No sustituye app.js ni styles.css.
-
-Novedades del formulario Autoclave:
-1. Datos generales del cliente.
-2. Albarán del cliente con foto/PDF.
-3. Medición propia con adjunto.
-4. Control de volumen: m3 declarado, comprobado y forma de comprobación.
-5. Cálculo automático de diferencia en m3 y porcentaje.
-6. Resultado de comprobación y aviso visual orientativo cuando supera el 2%.
-7. m3 a facturar, editable si hay acuerdo comercial.
-8. Fotos adicionales del proceso.
-9. Validaciones específicas antes de finalizar.
-10. PDF de autoclave adaptado al nuevo formulario.
-11. Diseño responsive para ordenador, tablet y móvil.
-12. Caché actualizada a mhs-v37-autoclave.
-
-Prueba recomendada:
-1. Crear rama autoclave-v37 desde main.
-2. Subir estos 5 archivos.
-3. Publicar temporalmente la rama en GitHub Pages.
-4. Crear una hoja AUTOCLAVE y probar: guardar, adjuntar, cálculo, finalizar y PDF.
-5. Si todo funciona, Pull Request hacia main.
