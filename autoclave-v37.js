@@ -10,7 +10,9 @@
     if(v===null||v===undefined||String(v).trim()==='')return NaN;
     return Number(String(v).replace(',','.'));
   }
-  function fmt2(v){return Number.isFinite(v)?v.toFixed(2).replace('.',','):'—'}
+  function trunc4(v){if(!Number.isFinite(v))return NaN;return Math.trunc(v*10000)/10000}
+  function fmt4(v){return Number.isFinite(v)?trunc4(v).toFixed(4).replace('.',','):'—'}
+  function input4(v){const n=esNum(v);return Number.isFinite(n)?trunc4(n).toFixed(4):String(v||'')}
   function autoSelect(id,label,options,value,extra=''){
     return `<div class="field"><label>${label}</label><select id="${id}" ${extra}>${options.map(o=>`<option value="${esc(o)}" ${o===value?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
   }
@@ -30,8 +32,8 @@
     </div></div></section>`;
   }
   function autoForm37(d){
-    const declared=d.declaredM3||'';
-    const checked=d.checkedM3||'';
+    const declared=input4(d.declaredM3||'');
+    const checked=input4(d.checkedM3||'');
     const method=d.checkMethod||'Medición propia';
     const result=d.checkResult||'Diferencia aceptada';
     const bill=checked;
@@ -48,8 +50,8 @@
       </div></section>
 
       <section class="accordion auto-section auto-open"><div class="accHead"><span><span class="auto-step">4</span> CONTROL DE VOLUMEN</span><span class="state" id="autoVolumeState">Pendiente</span></div><div class="accBody"><div class="formgrid auto-volume-grid">
-        ${field('declaredM3','m³ declarados por el cliente (si existen)',declared,'number','min="0" step="0.01" inputmode="decimal" oninput="updateAutoclaveCalc()"')}
-        ${field('checkedM3','Nuestra medición — m³ comprobados *',checked,'number','min="0" step="0.01" inputmode="decimal" oninput="updateAutoclaveCalc()"')}
+        ${field('declaredM3','m³ declarados por el cliente (si existen)',declared,'number','min="0" step="0.0001" inputmode="decimal" oninput="updateAutoclaveCalc()" onblur="normalizeAutoclaveM3(this)"')}
+        ${field('checkedM3','Nuestra medición — m³ comprobados *',checked,'number','min="0" step="0.0001" inputmode="decimal" oninput="updateAutoclaveCalc()" onblur="normalizeAutoclaveM3(this)"')}
         ${autoSelect('checkMethod','Forma de comprobación *',['Medición propia','Medición propia + albarán','Otro'],method,'onchange="updateAutoclaveCalc()"')}
         <div class="notice">Dato del cliente solo para comparar. Puede quedar vacío si no aporta volumen.</div>
         <div class="notice auto-own-measure"><b>Volumen real medido por nosotros.</b> Este valor alimenta automáticamente los m³ a facturar.</div>
@@ -63,7 +65,7 @@
       </div></div></section>
 
       <section class="accordion auto-section auto-open"><div class="accHead"><span><span class="auto-step">6</span> m³ A FACTURAR</span><span class="state">Facturación</span></div><div class="accBody"><div class="formgrid">
-        ${field('billM3','m³ a facturar *',bill,'number','min="0" step="0.01" inputmode="decimal" readonly aria-readonly="true"')}
+        ${field('billM3','m³ a facturar *',bill,'text','readonly aria-readonly="true" inputmode="decimal"')}
         <div class="notice auto-billing-rule"><b>Regla fija:</b> los m³ a facturar son siempre los m³ de nuestra medición comprobada. El volumen declarado por el cliente se utiliza únicamente como referencia comparativa.</div>
         ${texta('differenceNotes','Observaciones sobre la diferencia',d.differenceNotes||'')}
       </div></div></section>
@@ -92,22 +94,31 @@
     const d=current.data=current.data||{};
     current.client={...(current.client||{}),name:val('cname'),contact:val('contact'),address:val('address'),phone:val('phone'),email:val('email')};
     ['clientRef','generalObs','clientDeliveryNo','clientDeliveryDate','declaredM3','checkedM3','checkMethod','checkResult','differenceNotes'].forEach(k=>{if(document.getElementById(k))d[k]=val(k)});
-    d.billM3=d.checkedM3||'';
+    const declaredNum=trunc4(esNum(d.declaredM3)), checkedNum=trunc4(esNum(d.checkedM3));
+    if(Number.isFinite(declaredNum)) d.declaredM3=declaredNum.toFixed(4);
+    if(Number.isFinite(checkedNum)) d.checkedM3=checkedNum.toFixed(4);
+    d.billM3=Number.isFinite(checkedNum)?checkedNum.toFixed(4):'';
     d.observations=d.generalObs||'';
     const a=esNum(d.declaredM3),b=esNum(d.checkedM3);
-    d.differenceM3=(Number.isFinite(a)&&Number.isFinite(b))?(b-a):'';
-    d.differencePct=(Number.isFinite(a)&&a!==0&&Number.isFinite(b))?((b-a)/a*100):'';
+    d.differenceM3=(Number.isFinite(a)&&Number.isFinite(b))?trunc4(b-a):'';
+    d.differencePct=(Number.isFinite(a)&&a!==0&&Number.isFinite(b))?trunc4((b-a)/a*100):'';
+  };
+
+  window.normalizeAutoclaveM3=function(el){
+    const n=trunc4(esNum(el?.value));
+    if(Number.isFinite(n)) el.value=n.toFixed(4);
+    updateAutoclaveCalc();
   };
 
   window.updateAutoclaveCalc=function(initial=false){
     if(!current||current.type!=='autoclave')return;
-    const a=esNum(document.getElementById('declaredM3')?.value);
-    const b=esNum(document.getElementById('checkedM3')?.value);
-    const diff=(Number.isFinite(a)&&Number.isFinite(b))?b-a:NaN;
-    const pct=(Number.isFinite(diff)&&a!==0)?diff/a*100:NaN;
+    const a=trunc4(esNum(document.getElementById('declaredM3')?.value));
+    const b=trunc4(esNum(document.getElementById('checkedM3')?.value));
+    const diff=(Number.isFinite(a)&&Number.isFinite(b))?trunc4(b-a):NaN;
+    const pct=(Number.isFinite(diff)&&a!==0)?trunc4(diff/a*100):NaN;
     const dm=document.getElementById('diffM3'),dp=document.getElementById('diffPct'),msg=document.getElementById('autoResultMsg'),st=document.getElementById('autoResultState'),vs=document.getElementById('autoVolumeState');
-    if(dm)dm.textContent=Number.isFinite(diff)?`${diff>=0?'+ ':''}${fmt2(diff)} m³`:'—';
-    if(dp)dp.textContent=Number.isFinite(pct)?`${pct>=0?'+ ':''}${fmt2(pct)} %`:'—';
+    if(dm)dm.textContent=Number.isFinite(diff)?`${diff>=0?'+ ':''}${fmt4(diff)} m³`:'—';
+    if(dp)dp.textContent=Number.isFinite(pct)?`${pct>=0?'+ ':''}${fmt4(pct)} %`:'—';
     if(vs){vs.textContent=Number.isFinite(diff)?'Comprobado':'Pendiente';vs.classList.toggle('ok',Number.isFinite(diff));}
     if(st){st.textContent=Number.isFinite(pct)?'Calculado':'Pendiente';st.classList.toggle('ok',Number.isFinite(pct));}
     if(msg){
@@ -124,7 +135,7 @@
       }
     }
     const bill=document.getElementById('billM3');
-    if(bill)bill.value=Number.isFinite(b)?String(b).replace('.',','):'';
+    if(bill)bill.value=Number.isFinite(b)?fmt4(b):'';
   };
 
   finalizeSheet=function(){
@@ -133,14 +144,14 @@
     if(!current.number)miss.push('N.º de hoja');
     if(!current.date)miss.push('Fecha');
     if(!c.name)miss.push('Cliente');
-    const a=esNum(d.declaredM3),b=esNum(d.checkedM3),bill=esNum(d.billM3);
+    const a=trunc4(esNum(d.declaredM3)),b=trunc4(esNum(d.checkedM3)),bill=trunc4(esNum(d.billM3));
     if(!Number.isFinite(b)||b<0)miss.push('m³ comprobados');
     if(!d.checkMethod)miss.push('Forma de comprobación');
     if(!d.checkResult)miss.push('Resultado de comprobación');
     if(!Number.isFinite(bill)||bill<0||Math.abs(bill-b)>0.0001)miss.push('m³ a facturar (debe coincidir con nuestra medición)');
     if(miss.length){alert(`Faltan ${miss.length} campos/requisitos:\n• `+miss.join('\n• '));return;}
     const pct=Number.isFinite(a)&&a!==0?Math.abs((b-a)/a*100):0;
-    if(pct>2&&d.checkResult==='Diferencia aceptada'&&!confirm(`La diferencia es del ${fmt2(pct)} %, superior al 2 %. ¿Confirmas que quieres finalizarla como “Diferencia aceptada”?`))return;
+    if(pct>2&&d.checkResult==='Diferencia aceptada'&&!confirm(`La diferencia es del ${fmt4(pct)} %, superior al 2 %. ¿Confirmas que quieres finalizarla como “Diferencia aceptada”?`))return;
     if(confirm('¿Quieres finalizar esta hoja de autoclave? La hoja seguirá pudiendo editarse posteriormente.')){current.status='FINALIZADA';saveSheet(true);editSheet();setTimeout(()=>alert('Hoja de autoclave finalizada correctamente.'),50);}
   };
 
@@ -155,12 +166,12 @@
   };
 
   pdfAutoclave=function(s){
-    const d=s.data||{},a=esNum(d.declaredM3),b=esNum(d.checkedM3),diff=Number.isFinite(a)&&Number.isFinite(b)?b-a:NaN,pct=Number.isFinite(diff)&&a!==0?diff/a*100:NaN;
+    const d=s.data||{},a=trunc4(esNum(d.declaredM3)),b=trunc4(esNum(d.checkedM3)),diff=Number.isFinite(a)&&Number.isFinite(b)?trunc4(b-a):NaN,pct=Number.isFinite(diff)&&a!==0?trunc4(diff/a*100):NaN;
     const files=(arr,title)=>{arr=arr||[];return arr.length?`<div class="box attach"><h2>${title}</h2>${arr.map(x=>x.pdfData?`<div style="margin:2mm 0;text-align:center;break-inside:avoid"><img src="${x.pdfData}" style="max-width:70%;max-height:52mm;object-fit:contain"></div>`:`<div>${pdfText(x.name,'Archivo adjunto')}</div>`).join('')}</div>`:''};
     return `${pdfHeader(s,'HOJA DE SERVICIO - AUTOCLAVE')}${pdfClient(s)}
     <div class="box"><h2>Albarán / declaración del cliente</h2><b>N.º:</b> ${pdfText(d.clientDeliveryNo,'No aportado')} &nbsp; <b>Fecha:</b> ${d.clientDeliveryDate?pdfDate(d.clientDeliveryDate):'No aportada'}<br><small>Información utilizada únicamente como referencia comparativa.</small></div>
-    <div class="box"><h2>Control de volumen</h2><table class="small"><tr><th>Declarado cliente</th><th>Comprobado</th><th>Diferencia</th><th>Diferencia %</th><th>Forma de comprobación</th></tr><tr><td>${Number.isFinite(a)?fmt2(a)+' m³':'—'}</td><td>${Number.isFinite(b)?fmt2(b)+' m³':'—'}</td><td>${Number.isFinite(diff)?fmt2(diff)+' m³':'—'}</td><td>${Number.isFinite(pct)?fmt2(pct)+' %':'—'}</td><td>${pdfText(d.checkMethod)}</td></tr></table></div>
-    <div class="grid2"><div><div class="box"><h2>Resultado</h2><b>${pdfText(d.checkResult)}</b><br><br><b>m³ a facturar:</b> ${Number.isFinite(b)?fmt2(b):'—'} m³<br><small>Facturación basada siempre en nuestra medición comprobada.</small></div><div class="box cut"><h2>Observaciones sobre la diferencia</h2>${pdfText(d.differenceNotes)}</div></div><div><div class="box cut"><h2>Observaciones generales</h2>${pdfText(d.generalObs||d.observations)}</div>${pdfDirector()}</div></div>
+    <div class="box"><h2>Control de volumen</h2><table class="small"><tr><th>Declarado cliente</th><th>Comprobado</th><th>Diferencia</th><th>Diferencia %</th><th>Forma de comprobación</th></tr><tr><td>${Number.isFinite(a)?fmt4(a)+' m³':'—'}</td><td>${Number.isFinite(b)?fmt4(b)+' m³':'—'}</td><td>${Number.isFinite(diff)?fmt4(diff)+' m³':'—'}</td><td>${Number.isFinite(pct)?fmt4(pct)+' %':'—'}</td><td>${pdfText(d.checkMethod)}</td></tr></table></div>
+    <div class="grid2"><div><div class="box"><h2>Resultado</h2><b>${pdfText(d.checkResult)}</b><br><br><b>m³ a facturar:</b> ${Number.isFinite(b)?fmt4(b):'—'} m³<br><small>Facturación basada siempre en nuestra medición comprobada.</small></div><div class="box cut"><h2>Observaciones sobre la diferencia</h2>${pdfText(d.differenceNotes)}</div></div><div><div class="box cut"><h2>Observaciones generales</h2>${pdfText(d.generalObs||d.observations)}</div>${pdfDirector()}</div></div>
     ${files(d.clientDeliveryAttachments,'Albarán del cliente adjunto')}${files(d.ownMeasurementAttachments,'Medición propia adjunta')}${files(d.photoAttachments,'Fotos adicionales')}`;
   };
 })();

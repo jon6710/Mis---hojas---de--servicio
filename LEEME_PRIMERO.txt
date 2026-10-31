@@ -1,4 +1,4 @@
-MHS AUTOCLAVE v37.1
+MHS AUTOCLAVE v37.3
 
 Cambios principales:
 - Los m³ a facturar se calculan SIEMPRE desde nuestra medición (m³ comprobados).
@@ -7,7 +7,7 @@ Cambios principales:
 - Si el cliente no aporta albarán o volumen, la hoja puede finalizar igualmente.
 - Nuestra medición de m³ sí es obligatoria para finalizar.
 - El PDF deja constancia de que la facturación se basa siempre en nuestra medición.
-- Caché actualizada a v37.1 para forzar la carga de la versión nueva.
+- Caché actualizada a v37.3 para forzar la carga de la versión nueva.
 
 Subir estos archivos a la rama autoclave-v37 sustituyendo los anteriores:
 - index.html
@@ -15,3 +15,11 @@ Subir estos archivos a la rama autoclave-v37 sustituyendo los anteriores:
 - autoclave-v37.js
 - autoclave-v37.css
 - LEEME_PRIMERO.txt
+
+
+CORRECCIÓN v37.3:
+- Todo el control de volumen trabaja con 4 decimales.
+- Los valores se TRUNCAN a 4 decimales, nunca se redondean.
+- Ejemplo: 17,23998 se convierte en 17,2399.
+- Nuestra medición, diferencia en m³, diferencia en %, m³ a facturar y PDF usan la misma regla.
+- m³ a facturar sigue siendo automático, bloqueado y siempre igual a nuestra medición.
