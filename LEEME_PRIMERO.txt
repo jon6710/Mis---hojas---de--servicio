@@ -1,25 +1,25 @@
-ACTUALIZACIÓN RESPONSIVE - MIS HOJAS DE SERVICIO
+MHS AUTOCLAVE v37.3
 
-Este paquete NO modifica app.js ni tus datos/lógica.
+Cambios principales:
+- Los m³ a facturar se calculan SIEMPRE desde nuestra medición (m³ comprobados).
+- El campo de m³ a facturar queda bloqueado para evitar cambios accidentales.
+- El albarán del cliente y sus m³ son opcionales y sirven solo para comparación/trazabilidad.
+- Si el cliente no aporta albarán o volumen, la hoja puede finalizar igualmente.
+- Nuestra medición de m³ sí es obligatoria para finalizar.
+- El PDF deja constancia de que la facturación se basa siempre en nuestra medición.
+- Caché actualizada a v37.3 para forzar la carga de la versión nueva.
 
-Sustituye en la raíz del repositorio estos 3 archivos:
+Subir estos archivos a la rama autoclave-v37 sustituyendo los anteriores:
 - index.html
-- styles.css
 - sw.js
+- autoclave-v37.js
+- autoclave-v37.css
+- LEEME_PRIMERO.txt
 
-Qué mejora:
-- Escritorio, tablet y móvil.
-- Formularios apilados correctamente en pantallas pequeñas.
-- Tablas con desplazamiento horizontal seguro.
-- Cabecera y barra de herramientas adaptadas.
-- Botones más cómodos para pantalla táctil.
-- Modales adaptados a la altura real del móvil.
-- Compatibilidad con notch/safe-area en iPhone/iPad.
-- Panel principal adaptado a distintos anchos.
-- Se mantiene intacta la lógica de app.js.
-- Se sube la caché del service worker a mhs-v35-responsive para forzar la actualización del CSS.
 
-Después de subir los archivos a GitHub Pages, si el móvil muestra la versión anterior:
-1. Cierra la web/PWA completamente.
-2. Vuelve a abrirla.
-3. Si aún conserva la anterior, recarga la página una vez.
+CORRECCIÓN v37.3:
+- Todo el control de volumen trabaja con 4 decimales.
+- Los valores se TRUNCAN a 4 decimales, nunca se redondean.
+- Ejemplo: 17,23998 se convierte en 17,2399.
+- Nuestra medición, diferencia en m³, diferencia en %, m³ a facturar y PDF usan la misma regla.
+- m³ a facturar sigue siendo automático, bloqueado y siempre igual a nuestra medición.
