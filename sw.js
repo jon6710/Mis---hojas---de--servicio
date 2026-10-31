@@ -1,4 +1,4 @@
-const CACHE='mhs-piloto-real-v44-offline-1';
+const CACHE='mhs-piloto-real-v44-offline-2';
 const ASSETS=[
   './','./index.html','./styles.css','./app.js','./offline-sync.js','./manifest.json',
   './icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'
