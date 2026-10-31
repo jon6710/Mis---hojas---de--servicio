@@ -1,10 +1,103 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#148a52"><meta name="description" content="Mis Hojas de Servicio"><link rel="manifest" href="manifest.json"><title>Mis Hojas de Servicio</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="autoclave-v37.css"></head><body>
-<header class="top"><div class="brand"><img src="logo.jpeg" alt="Logo"><div><b>MIS HOJAS DE SERVICIO</b><small id="saveMsg"></small></div></div><button class="ghost" onclick="showView('config')">⚙ Configuración</button></header>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f7a49">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mis Hojas">
+  <meta name="description" content="Mis Hojas de Servicio · Piloto integrado">
+  <title>Mis Hojas de Servicio · Piloto instalable v44 Offline</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar no-print">
+      <div class="side-brand"><span class="brandmark">MH</span><div><strong>Mis Hojas</strong><small>Gestión de servicios</small></div></div>
+      <nav class="side-nav" aria-label="Navegación principal">
+        <button class="side-link active" id="btnDashboard">⌂ <span>Inicio</span></button>
+        <button class="side-link" data-module="madera">🪵 <span>Madera in situ</span></button>
+        <button class="side-link" data-module="ddd">🛡️ <span>DDD</span></button>
+        <button class="side-link" data-module="autoclave">♨️ <span>Autoclave</span></button>
+        <button class="side-link" data-module="mobiliario">🪑 <span>Mobiliario</span></button>
+        <button class="side-link" data-module="termitas">🐜 <span>Termitas</span></button>
+        <div class="side-sep"></div>
+        <button class="side-link" data-area="albaranes">▤ <span>Albaranes</span></button>
+        <button class="side-link" data-area="facturacion">€ <span>Facturación</span></button>
+        <button class="side-link" data-area="documentos">▱ <span>Documentos</span></button>
+        <button class="side-link" id="btnSettings">⚙ <span>Empresa / copias</span></button>
+      </nav>
+      <div class="side-foot"><strong>Piloto v44</strong><small>Instalable · datos locales provisionales</small></div>
+    </aside>
+    <section class="workspace">
+      <header class="topbar no-print">
+        <div><strong>Piloto operativo integrado</strong><small>Servicios, documentación, facturación y certificados</small></div>
+        <div class="topactions"><button class="sync-status" id="syncStatusBtn" type="button" aria-label="Estado de sincronización"><span id="syncDot">●</span><span id="syncText">Preparando offline…</span></button><button class="btn ghost install-app-btn" id="installAppBtn" type="button" hidden>Instalar app</button><span class="pilot-chip">PILOTO v44 · OFFLINE</span></div>
+      </header>
+      <div class="pilot-warning no-print">Modo offline activo: puedes trabajar sin cobertura. Los cambios, fotos y documentos quedan guardados en el dispositivo y en cola para su sincronización posterior. Hasta conectar el servidor central, los pendientes permanecerán en este dispositivo; exporta también copias JSON periódicas.</div>
+      <main id="app"></main>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="installHelp" class="install-help no-print" hidden>
+    <div class="install-help-card">
+      <strong>Instalar Mis Hojas de Servicio</strong>
+      <p id="installHelpText">Puedes instalar esta aplicación desde el menú del navegador.</p>
+      <button class="btn" id="closeInstallHelp" type="button">Entendido</button>
+    </div>
+  </div>
 
-<main id="app"></main>
+  <script src="offline-sync.js"></script>
+  <script src="app.js"></script>
+  <script>
+  (function(){
+    const btn=document.getElementById('syncStatusBtn'),dot=document.getElementById('syncDot'),text=document.getElementById('syncText');
+    if(!btn||!window.MHSOffline)return;
+    const paint=st=>{
+      btn.classList.toggle('is-offline',!st.online);btn.classList.toggle('has-pending',st.pending>0);btn.classList.toggle('is-syncing',st.syncing);
+      dot.textContent=st.syncing?'↻':(st.online?'●':'○');
+      if(!st.online) text.textContent=`Sin conexión · ${st.pending} pendiente${st.pending===1?'':'s'}`;
+      else if(st.syncing) text.textContent='Sincronizando…';
+      else if(st.pending&&st.configured) text.textContent=`Online · ${st.pending} pendiente${st.pending===1?'':'s'}`;
+      else if(st.pending) text.textContent=`Online · ${st.pending} pendiente${st.pending===1?'':'s'} (servidor pendiente)`;
+      else text.textContent='Online · todo guardado';
+    };
+    MHSOffline.onStatus(paint);
+    btn.addEventListener('click',async()=>{const st=await MHSOffline.getStatus();if(!st.online){alert('Estás sin conexión. Puedes seguir trabajando; todo queda guardado localmente.');return}if(!st.configured){alert('Los cambios están guardados y en cola. La sincronización automática con servidor se activará cuando conectemos la base de datos central.');return}const r=await MHSOffline.syncNow();alert(r.synced?`Sincronizados ${r.synced} cambios.`:`No había cambios que sincronizar.`)});
+  })();
+  </script>
 
-<div id="modal" class="modal hidden"><div class="modalbox" id="modalBody"></div></div>
+  <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}))}</script>
 
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script defer src="app.js"></script>
-<script defer src="autoclave-v37.js"></script>
+  <script>
+  (function(){
+    let deferredPrompt=null;
+    const btn=document.getElementById('installAppBtn');
+    const help=document.getElementById('installHelp');
+    const helpText=document.getElementById('installHelpText');
+    const close=document.getElementById('closeInstallHelp');
+    const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+    const isiOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    if(!standalone){
+      if(isiOS){
+        btn.hidden=false;
+        btn.addEventListener('click',()=>{helpText.textContent='En Safari: pulsa Compartir y después “Añadir a pantalla de inicio”.';help.hidden=false;});
+      }
+      window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;btn.hidden=false;});
+      btn.addEventListener('click',async()=>{
+        if(!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt=null;btn.hidden=true;
+      });
+    }
+    close.addEventListener('click',()=>help.hidden=true);
+    help.addEventListener('click',e=>{if(e.target===help) help.hidden=true;});
+  })();
+  </script>
+
+</body>
+</html>
