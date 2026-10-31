@@ -1,0 +1,25 @@
+ACTUALIZACIÓN RESPONSIVE - MIS HOJAS DE SERVICIO
+
+Este paquete NO modifica app.js ni tus datos/lógica.
+
+Sustituye en la raíz del repositorio estos 3 archivos:
+- index.html
+- styles.css
+- sw.js
+
+Qué mejora:
+- Escritorio, tablet y móvil.
+- Formularios apilados correctamente en pantallas pequeñas.
+- Tablas con desplazamiento horizontal seguro.
+- Cabecera y barra de herramientas adaptadas.
+- Botones más cómodos para pantalla táctil.
+- Modales adaptados a la altura real del móvil.
+- Compatibilidad con notch/safe-area en iPhone/iPad.
+- Panel principal adaptado a distintos anchos.
+- Se mantiene intacta la lógica de app.js.
+- Se sube la caché del service worker a mhs-v35-responsive para forzar la actualización del CSS.
+
+Después de subir los archivos a GitHub Pages, si el móvil muestra la versión anterior:
+1. Cierra la web/PWA completamente.
+2. Vuelve a abrirla.
+3. Si aún conserva la anterior, recarga la página una vez.
