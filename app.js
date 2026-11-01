@@ -377,6 +377,171 @@ function printBudget(b){if(!b)return;const c=state.clients.find(x=>x.id===b.clie
 
 printDoc=function(title,body){const c=state.company||{},w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para imprimir.');return}w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;color:#203129;font-size:11pt;background:#e9ecea;padding:24px}.a4-page{position:relative;width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:14mm;box-shadow:0 8px 28px rgba(0,0,0,.16);overflow:hidden}header{border-bottom:3px solid #0f7a49;padding-bottom:10px;margin-bottom:20px;display:flex;gap:12px;align-items:center}header img{max-width:100px;max-height:60px;object-fit:contain}h1{color:#0f7a49;margin:0;font-size:21pt}h2{color:#27543d}.meta{font-size:9pt;color:#64776d}.company-doc-head{display:flex;gap:12px;align-items:center;border:1px solid #d5e1db;border-radius:8px;padding:10px;margin:8px 0 18px}.company-doc-head img{max-width:100px;max-height:60px}.company-doc-head small{display:block;color:#64776d}.big{font-size:17pt;font-weight:800;border:1px solid #bdd5c7;padding:12px;border-radius:8px;background:#f3f8f5;margin:15px 0}.sign{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:60px}.sign span{border-top:1px solid #777;padding-top:6px;text-align:center}.draft{position:absolute;right:20mm;top:35mm;font-size:30pt;color:#b44;opacity:.18;transform:rotate(-12deg);font-weight:900}table{width:100%;border-collapse:collapse;margin:15px 0}th,td{border:1px solid #ccc;padding:9px;text-align:left}.tot{text-align:right;font-size:12pt}.note{font-size:9pt;color:#5f6f67;border:1px solid #ddd;padding:10px;border-radius:8px}footer{margin-top:40px;border-top:1px solid #ccc;padding-top:8px;font-size:8pt;color:#666}.preview-actions{position:sticky;top:12px;z-index:2;display:flex;justify-content:center;gap:8px;margin-bottom:14px}.preview-actions button{border:0;border-radius:9px;padding:10px 14px;background:#0f7a49;color:#fff;font-weight:700;cursor:pointer}.preview-actions button.secondary{background:#fff;color:#0f7a49;border:1px solid #9fc7b0}@media(max-width:900px){body{padding:12px}.a4-page{width:100%;min-height:auto;padding:clamp(14px,4vw,32px);box-shadow:0 4px 18px rgba(0,0,0,.14)}h1{font-size:18pt}.sign{grid-template-columns:1fr;gap:18px;margin-top:36px}}@media print{body{background:#fff;padding:0}.preview-actions{display:none!important}.a4-page{width:210mm;min-height:297mm;margin:0;box-shadow:none;padding:14mm;overflow:visible}}</style></head><body><div class="preview-actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button class="secondary" onclick="window.close()">Cerrar</button></div><main class="a4-page"><header>${c.logo?`<img src="${c.logo}" alt="Logo">`:''}<div><h1>${esc(title)}</h1><div class="meta">${esc(c.commercialName||c.name||'Empresa')}${c.name&&c.commercialName?` · ${esc(c.name)}`:''}${c.taxId?` · ${esc(c.taxId)}`:''}${c.registration?` · ROESB ${esc(c.registration)}`:''}<br>${esc([c.address,c.postalCode,c.province].filter(Boolean).join(' · '))}</div></div></header>${body}<footer>Generado desde Mis Hojas de Servicio · Piloto v51</footer></main></body></html>`);w.document.close()};
 
+
+
+/* v52 · Autoclave: formato clásico, hoja de tratamiento, albarán sin precios y factura separada */
+state.settings=state.settings||{};
+if(!Number.isFinite(Number(state.settings.wastePriceM3))) state.settings.wastePriceM3=0.52;
+
+function autoClientSection(s){
+ const c=s.client||{};
+ const opts=(state.clients||[]).filter(x=>x.active!==false).map(x=>`<option value="${esc(x.name)}"></option>`).join('');
+ return `<section class="section classic-section"><h3>Datos del cliente</h3><div class="inner"><div class="grid three">
+   ${field('number','N.º hoja',s.number,'text','readonly class="readonly"')}${field('date','Fecha',s.date,'date')}
+   <div class="field"><label>Cliente</label><input id="clientName" list="clientCatalog" value="${esc(c.name||'')}"><datalist id="clientCatalog">${opts}</datalist></div>
+   ${field('clientTaxId','CIF / NIF',c.taxId||'')}${field('clientPhone','Teléfono',c.phone||'')}${field('clientEmail','Email',c.email||'','email')}
+   <div class="field full"><label>Dirección</label><input id="clientAddress" value="${esc(c.address||'')}"></div>
+   ${field('clientPostalCode','Código postal',c.postalCode||'')}${field('clientProvince','Provincia',c.province||'')}${field('clientContact','Contacto',c.contact||'')}
+ </div></div></section>`;
+}
+
+function bindAutoClient(s){
+ const cn=$('#clientName');
+ if(!cn)return;
+ const sync=()=>{const c=(state.clients||[]).find(x=>String(x.name||'').trim().toLowerCase()===cn.value.trim().toLowerCase());if(!c)return;
+   const map={clientTaxId:'taxId',clientPhone:'phone',clientEmail:'email',clientAddress:'address',clientPostalCode:'postalCode',clientProvince:'province',clientContact:'contact'};
+   Object.entries(map).forEach(([id,k])=>{const el=$('#'+id);if(el)el.value=c[k]||''});
+ };
+ cn.addEventListener('change',sync);cn.addEventListener('blur',sync);
+}
+
+function singleMaterialPhoto(s){return `<section class="section classic-section"><h3>Foto del material</h3><div class="inner"><div class="photos one-photo">${photoBox('photoBefore','Una foto del material',s.photos?.before)}</div></div></section>${recoveredAttachmentsSection(s)}`}
+
+renderAutoclave=function(s){
+ const d=s.data||{};
+ const treatment=d.autoTreatment||'Vacsolizado';
+ const cycle=d.autoCycle||{};
+ const ready=d.productReadyUse!==false;
+ const tool=`<div class="toolbar"><button class="btn secondary" id="backBtn">← Volver</button><button class="btn" id="saveBtn">💾 Guardar hoja</button><label class="btn secondary import-label">📎 Adjuntar documento<input id="serviceAttachment" type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" hidden></label><span class="spacer"></span><button class="btn secondary" id="treatmentPdfBtn">Hoja de tratamiento</button><button class="btn blue" id="transportBtn">Albarán</button><button class="btn amber" id="billingBtn">Factura</button><button class="btn secondary" id="certificateBtn">Certificado final</button><button class="btn" id="finishBtn">Finalizar</button></div>`;
+ app.innerHTML=tool+`<div class="sheet classic-sheet">${commonHeader(s,'Hoja de tratamiento · Autoclave')}<div class="sheet-body">
+ ${autoClientSection(s)}
+ <section class="section classic-section"><h3>Datos del tratamiento</h3><div class="inner"><div class="grid three">
+   ${field('clientDeliveryNo','N.º albarán cliente (opcional)',d.clientDeliveryNo||'')}
+   ${field('declaredM3','m³ declarados por cliente (opcional)',d.declaredM3||'','text','inputmode="decimal"')}
+   ${field('checkedM3','Nuestra medición (m³) *',d.checkedM3||'','text','inputmode="decimal"')}
+   ${field('humidity','Contenido de humedad (%)',d.humidity||'','text','inputmode="decimal"')}
+   ${field('useClass','Clase de uso',d.useClass||'')}
+   ${field('autoTreatment','Tratamiento',treatment)}
+ </div><div class="kpis"><div class="kpi"><span>Cliente</span><strong id="aDeclared">—</strong></div><div class="kpi"><span>Nuestra medición</span><strong id="aChecked">—</strong></div><div class="kpi"><span>Diferencia</span><strong id="aDiff">—</strong></div><div class="kpi"><span>Diferencia %</span><strong id="aPct">—</strong></div></div><div class="notice"><b>Regla fija:</b> para facturar prevalece nuestra medición, truncada a 4 decimales sin redondear.</div></div></section>
+ <section class="section classic-section"><h3>Parámetros del ciclo</h3><div class="inner"><div class="grid">
+   ${field('cycleVacInitial','Vacío inicial',cycle.vacInitial||'')}${field('cycleVacConstant','Vacío constante',cycle.vacConstant||'')}
+   ${field('cycleSprayVac','Pulverización en vacío',cycle.sprayVac||'')}${field('cycleSprayDecreasing','Pulverización vacío decreciente',cycle.sprayDecreasing||'')}
+   ${field('cycleDrying','Secado',cycle.drying||'')}
+ </div></div></section>
+ <section class="section classic-section"><h3>Producto</h3><div class="inner"><div class="grid">
+   ${field('productName','Nombre del producto',d.productName||'')}
+   <div class="field"><label>Listo al uso</label><label class="checkline"><input id="productReadyUse" type="checkbox" ${ready?'checked':''}> Sí</label></div>
+ </div></div></section>
+ ${singleMaterialPhoto(s)}
+ ${textarea('autoObs','Observaciones',d.autoObs||'')}
+ </div></div>`;
+ bindCommon(s,collectAutoclave,{transport:true});bindAutoClient(s);
+ bindPhoto('photoBefore',s,'before');
+ ['declaredM3','checkedM3','autoPriceM3'].forEach(id=>$('#'+id)?.addEventListener('input',calcAutoclave));
+ $('#checkedM3')?.addEventListener('blur',()=>{const n=trunc4(num($('#checkedM3').value));if(Number.isFinite(n))$('#checkedM3').value=n.toFixed(4);calcAutoclave()});
+ $('#declaredM3')?.addEventListener('blur',()=>{const n=trunc4(num($('#declaredM3').value));if(Number.isFinite(n))$('#declaredM3').value=n.toFixed(4);calcAutoclave()});
+ $('#treatmentPdfBtn').onclick=()=>{collectAutoclave(s);save();printAutoclaveTreatment(s)};
+ $('#transportBtn').onclick=()=>{collectAutoclave(s);save();openTransport(s)};
+ $('#billingBtn').onclick=()=>{collectAutoclave(s);save();openAutoclaveInvoice(s)};
+ calcAutoclave();
+};
+
+collectAutoclave=function(s){
+ s.number=$('#number')?.value.trim()||s.number;s.date=$('#date')?.value||s.date;
+ s.client={name:$('#clientName')?.value.trim()||'',taxId:$('#clientTaxId')?.value.trim()||'',phone:$('#clientPhone')?.value.trim()||'',email:$('#clientEmail')?.value.trim()||'',address:$('#clientAddress')?.value.trim()||'',postalCode:$('#clientPostalCode')?.value.trim()||'',province:$('#clientProvince')?.value.trim()||'',contact:$('#clientContact')?.value.trim()||''};
+ const d=s.data=s.data||{};
+ ['clientDeliveryNo','declaredM3','checkedM3','humidity','useClass','autoTreatment','productName','autoObs'].forEach(k=>{const e=$('#'+k);if(e)d[k]=e.value});
+ d.productReadyUse=!!$('#productReadyUse')?.checked;
+ d.autoCycle={vacInitial:$('#cycleVacInitial')?.value||'',vacConstant:$('#cycleVacConstant')?.value||'',sprayVac:$('#cycleSprayVac')?.value||'',sprayDecreasing:$('#cycleSprayDecreasing')?.value||'',drying:$('#cycleDrying')?.value||''};
+ const b=trunc4(num(d.checkedM3));d.billM3=Number.isFinite(b)?b.toFixed(4):'';s.updatedAt=new Date().toISOString();calcAutoclave();
+};
+
+function printAutoclaveTreatment(s){
+ const d=s.data||{},c=s.client||{},cy=d.autoCycle||{};
+ const photo=s.photos?.before?`<div class="doc-photo"><img src="${s.photos.before}" alt="Foto del material"></div>`:'';
+ printDoc('HOJA DE TRATAMIENTO · AUTOCLAVE',`${companyHeaderHtml()}<div class="doc-grid"><div><b>Cliente:</b> ${esc(c.name||'')}<br><b>CIF/NIF:</b> ${esc(c.taxId||'')}<br><b>Dirección:</b> ${esc([c.address,c.postalCode,c.province].filter(Boolean).join(' · '))}<br><b>Teléfono:</b> ${esc(c.phone||'')}</div><div><b>N.º:</b> ${esc(s.number||'')}<br><b>Fecha:</b> ${esc(s.date||'')}<br><b>Tratamiento:</b> ${esc(d.autoTreatment||'')}<br><b>Clase de uso:</b> ${esc(d.useClass||'')}<br><b>Humedad:</b> ${esc(d.humidity||'')}%</div></div>
+ <table><tr><th>Descripción</th><th>Cantidad</th><th>Unidad</th></tr><tr><td>${esc(d.autoTreatment||'Tratamiento en autoclave')}</td><td>${fmt4(num(d.checkedM3))}</td><td>m³</td></tr></table>
+ <h2>Parámetros del ciclo</h2><table><tr><td>Vacío inicial</td><td>${esc(cy.vacInitial||'')}</td><td>Vacío constante</td><td>${esc(cy.vacConstant||'')}</td></tr><tr><td>Pulverización en vacío</td><td>${esc(cy.sprayVac||'')}</td><td>Pulverización vacío decreciente</td><td>${esc(cy.sprayDecreasing||'')}</td></tr><tr><td>Secado</td><td>${esc(cy.drying||'')}</td><td>Producto</td><td>${esc(d.productName||'')} ${d.productReadyUse?'· Listo al uso':''}</td></tr></table>
+ ${photo}<p class="note"><b>Observaciones:</b><br>${esc(d.autoObs||'')}</p>${companyValidationHtml()}`)
+}
+
+openTransport=function(s){
+ if(!['autoclave','mobiliario'].includes(s.type)){alert('El albarán está previsto para Autoclave y Mobiliario.');return}
+ const d=s.data=s.data||{},t=d.transport=d.transport||{};
+ if(!Array.isArray(t.lines)||!t.lines.length){t.lines=[{description:s.type==='autoclave'?(d.autoTreatment||'Tratamiento en autoclave'):(d.furnDesc||'Mobiliario tratado'),quantity:s.type==='autoclave'?(d.billM3||d.checkedM3||''):(d.furnQty||''),unit:s.type==='autoclave'?'m³':'ud'}]}
+ const rows=()=>t.lines.map((x,i)=>`<div class="concept-row albaran-line" data-i="${i}"><input class="al-desc" value="${esc(x.description||'')}" placeholder="Descripción"><input class="al-qty" value="${esc(x.quantity||'')}" placeholder="Cantidad"><input class="al-unit" value="${esc(x.unit||'')}" placeholder="Unidad"><button type="button" class="btn red mini remove-al-line">Eliminar</button></div>`).join('');
+ app.innerHTML=`<div class="toolbar"><button class="btn secondary" id="trBack">← Volver a hoja</button><button class="btn" id="trSave">Guardar albarán</button><button class="btn blue" id="trPrint">Imprimir / PDF</button></div><div class="sheet"><div class="sheet-title"><div><h1>Albarán</h1><small>${esc(typeMeta[s.type].name)} · ${esc(serviceDocNo(s,'ALB'))}</small></div></div><div class="sheet-body">
+ <section class="section"><h3>Datos del albarán</h3><div class="inner"><div class="grid three">${field('trNo','N.º albarán',t.number||serviceDocNo(s,'ALB'),'text','readonly class="readonly"')}${field('trDate','Fecha',t.date||nowDate(),'date')}${field('trNotes','Observaciones',t.notes||'')}</div></div></section>
+ <section class="section"><h3>Conceptos · sin precios</h3><div class="inner"><div class="concept-head"><span>Descripción</span><span>Cantidad</span><span>Unidad</span><span></span></div><div id="albaranLines">${rows()}</div><button type="button" class="btn secondary" id="addAlLine">+ Añadir línea</button></div></section>
+ <section class="section"><h3>Datos de recogida</h3><div class="inner"><div class="grid two">${field('trCompany','Empresa que recoge',t.company||'')}${field('trPlate','Matrícula del camión',t.plate||'')}${field('trDriver','Nombre del chófer',t.driver||'')}${field('trDni','DNI del chófer',t.dni||'')}</div>
+ <div class="field full"><label>Firma del chófer · obligatoria</label><canvas id="deliverySignature" width="700" height="220" class="signature-canvas"></canvas><div class="signature-actions"><button type="button" class="btn secondary" id="clearDeliverySignature">Borrar firma</button></div></div>
+ <div class="field full"><label>Sello de la empresa · opcional</label><input id="trStampFile" type="file" accept="image/*"><div id="trStampPreview" class="stamp-preview">${t.stamp?`<img src="${t.stamp}" alt="Sello">`:'Sin sello'}</div></div>
+ </div></section></div></div>`;
+ const bindRows=()=>document.querySelectorAll('.remove-al-line').forEach(b=>b.onclick=()=>{b.closest('.albaran-line').remove()});bindRows();
+ $('#addAlLine').onclick=()=>{const div=document.createElement('div');div.className='concept-row albaran-line';div.innerHTML='<input class="al-desc" placeholder="Descripción"><input class="al-qty" placeholder="Cantidad"><input class="al-unit" placeholder="Unidad"><button type="button" class="btn red mini remove-al-line">Eliminar</button>';$('#albaranLines').appendChild(div);bindRows()};
+ $('#trBack').onclick=renderService;setupDeliverySignature(s);
+ $('#trStampFile').onchange=()=>{const f=$('#trStampFile').files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{t.stamp=r.result;$('#trStampPreview').innerHTML=`<img src="${r.result}" alt="Sello">`};r.readAsDataURL(f)};
+ $('#trSave').onclick=()=>{if(saveTransport(s,true))toast('Albarán guardado')};$('#trPrint').onclick=()=>{if(saveTransport(s,true))printTransport(s)};
+};
+
+saveTransport=function(s,requireSignature=false){
+ const t=s.data.transport=s.data.transport||{},canvas=$('#deliverySignature');
+ t.number=$('#trNo')?.value||serviceDocNo(s,'ALB');t.date=$('#trDate')?.value||nowDate();t.notes=$('#trNotes')?.value||'';t.company=$('#trCompany')?.value.trim()||'';t.plate=$('#trPlate')?.value.trim()||'';t.driver=$('#trDriver')?.value.trim()||'';t.dni=$('#trDni')?.value.trim()||'';
+ t.lines=[...document.querySelectorAll('.albaran-line')].map(r=>({description:r.querySelector('.al-desc')?.value.trim()||'',quantity:r.querySelector('.al-qty')?.value.trim()||'',unit:r.querySelector('.al-unit')?.value.trim()||''})).filter(x=>x.description||x.quantity||x.unit);
+ if(canvas?._mhsHasInk?.())t.signature=canvas._mhsData();
+ if(requireSignature&&(!t.company||!t.plate||!t.driver||!t.dni||!t.signature)){alert('Completa empresa que recoge, matrícula, nombre y DNI del chófer, y su firma obligatoria.');return false}
+ s.updatedAt=new Date().toISOString();save();return true;
+};
+
+printTransport=function(s){
+ const t=s.data.transport||{},c=s.client||{};if(!t.driver||!t.dni||!t.signature){alert('El albarán necesita nombre, DNI y firma del chófer.');return}
+ const rows=(t.lines||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.description||'')}</td><td>${esc(x.quantity||'')}</td><td>${esc(x.unit||'')}</td></tr>`).join('');
+ printDoc('ALBARÁN',`${companyHeaderHtml()}<div class="doc-grid"><div><b>Cliente:</b> ${esc(c.name||'')}<br><b>CIF/NIF:</b> ${esc(c.taxId||'')}<br><b>Dirección:</b> ${esc([c.address,c.postalCode,c.province].filter(Boolean).join(' · '))}</div><div><b>N.º:</b> ${esc(t.number||serviceDocNo(s,'ALB'))}<br><b>Fecha:</b> ${esc(t.date||'')}<br><b>N.º hoja:</b> ${esc(s.number||'')}</div></div><h2>Conceptos</h2><table><tr><th>Nº</th><th>Descripción</th><th>Cantidad</th><th>Unidad</th></tr>${rows}</table>${t.notes?`<p class="note"><b>Observaciones:</b><br>${esc(t.notes)}</p>`:''}<h2>Datos de recogida</h2><table><tr><td><b>Empresa que recoge</b><br>${esc(t.company||'')}</td><td><b>Matrícula</b><br>${esc(t.plate||'')}</td></tr><tr><td><b>Chófer</b><br>${esc(t.driver||'')}</td><td><b>DNI</b><br>${esc(t.dni||'')}</td></tr></table><div class="sign"><div><img src="${t.signature}" style="max-width:300px;max-height:110px"><br><span>Firma del chófer</span></div><div>${t.stamp?`<img src="${t.stamp}" style="max-width:220px;max-height:110px"><br>`:''}<span>Sello (opcional)</span></div></div>`)
+};
+
+function autoclaveDefaultInvoiceLines(s){
+ const d=s.data||{},q=d.billM3||d.checkedM3||'',p=d.autoPriceM3||'';
+ return [
+  {description:d.autoTreatment||'Tratamiento en autoclave',quantity:q,unit:'m³',price:p},
+  {description:'Gestión de residuos derivados del tratamiento',quantity:q,unit:'m³',price:String(state.settings.wastePriceM3??0.52)}
+ ];
+}
+
+function openAutoclaveInvoice(s,invoiceId=''){
+ state.invoices=Array.isArray(state.invoices)?state.invoices:[];
+ const client=(state.clients||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(s.client?.name||'').trim().toLowerCase());
+ let inv=state.invoices.find(x=>x.id===invoiceId) || state.invoices.find(x=>x.serviceId===s.id&&Array.isArray(x.lines));
+ const isOld=!!inv;if(!inv)inv={id:uid(),number:serviceDocNo(s,'FRA'),date:nowDate(),clientId:client?.id||'',serviceId:s.id,vat:'21',status:'BORRADOR',notes:'',lines:autoclaveDefaultInvoiceLines(s)};
+ if(!Array.isArray(inv.lines)||!inv.lines.length)inv.lines=autoclaveDefaultInvoiceLines(s);
+ const rows=()=>inv.lines.map(x=>`<div class="invoice-line concept-row"><input class="fi-desc" value="${esc(x.description||'')}" placeholder="Concepto"><input class="fi-qty" value="${esc(x.quantity||'')}" inputmode="decimal" placeholder="Cantidad"><input class="fi-unit" value="${esc(x.unit||'')}" placeholder="Unidad"><input class="fi-price" value="${esc(x.price||'')}" inputmode="decimal" placeholder="Precio €"><button type="button" class="btn red mini remove-fi-line">Eliminar</button></div>`).join('');
+ app.innerHTML=`<section class="hero"><div><h1>Factura · Autoclave</h1><p>Documento independiente del albarán. Aquí sí aparecen precios e impuestos.</p></div></section><section class="panel"><div class="settings-grid">${field('invNo','N.º factura',inv.number||serviceDocNo(s,'FRA'))}${field('invDate','Fecha',inv.date||nowDate(),'date')}${select('invVat','IVA (%)',['21','10'],String(inv.vat||'21'))}${select('invStatus','Estado',['BORRADOR','EMITIDA'],inv.status||'BORRADOR')}</div><h3>Conceptos</h3><div class="concept-head invoice-head"><span>Concepto</span><span>Cantidad</span><span>Unidad</span><span>Precio</span><span></span></div><div id="invoiceLines">${rows()}</div><div class="cert-actions"><button class="btn secondary" id="addFiLine">+ Añadir línea</button><button class="btn secondary" id="setWastePrice">Precio residuos: ${Number(state.settings.wastePriceM3).toFixed(2).replace('.',',')} €/m³</button></div>${textarea('invNotes','Observaciones',inv.notes||'')}<div class="totals"><div class="total"><span>Base</span><strong id="invBaseOut">—</strong></div><div class="total"><span>IVA</span><strong id="invVatOut">—</strong></div><div class="total"><span>Total</span><strong id="invTotalOut">—</strong></div></div><div class="cert-actions"><button class="btn" id="invSave">Guardar factura</button><button class="btn secondary" id="invCancel">Volver a hoja</button>${isOld?'<button class="btn blue" id="invPrint">Imprimir / PDF</button><button class="btn secondary" id="invShare">Compartir</button>':''}</div></section>`;
+ const bindLines=()=>document.querySelectorAll('.remove-fi-line').forEach(b=>b.onclick=()=>{b.closest('.invoice-line').remove();calc()});
+ const getLines=()=>[...document.querySelectorAll('.invoice-line')].map(r=>({description:r.querySelector('.fi-desc').value.trim(),quantity:r.querySelector('.fi-qty').value.trim(),unit:r.querySelector('.fi-unit').value.trim(),price:r.querySelector('.fi-price').value.trim()})).filter(x=>x.description||x.quantity||x.price);
+ const calc=()=>{const base=getLines().reduce((a,x)=>a+(num(x.quantity)||0)*(num(x.price)||0),0),vat=num($('#invVat').value)||0;$('#invBaseOut').textContent=money(base);$('#invVatOut').textContent=money(base*vat/100);$('#invTotalOut').textContent=money(base*(1+vat/100));return {base,vat,total:base*(1+vat/100)}};
+ const add=()=>{const div=document.createElement('div');div.className='invoice-line concept-row';div.innerHTML='<input class="fi-desc" placeholder="Concepto"><input class="fi-qty" inputmode="decimal" placeholder="Cantidad"><input class="fi-unit" placeholder="Unidad"><input class="fi-price" inputmode="decimal" placeholder="Precio €"><button type="button" class="btn red mini remove-fi-line">Eliminar</button>';$('#invoiceLines').appendChild(div);bindLines();[...div.querySelectorAll('input')].forEach(e=>e.addEventListener('input',calc));calc()};
+ bindLines();document.querySelectorAll('.invoice-line input').forEach(e=>e.addEventListener('input',calc));$('#invVat').addEventListener('change',calc);$('#addFiLine').onclick=add;calc();
+ $('#setWastePrice').onclick=()=>{const v=prompt('Nuevo precio de gestión de residuos (€/m³):',String(state.settings.wastePriceM3??0.52).replace('.',','));if(v===null)return;const n=num(v);if(!Number.isFinite(n)||n<0){alert('Indica un precio válido.');return}state.settings.wastePriceM3=n;save();document.querySelectorAll('.invoice-line').forEach(r=>{if(r.querySelector('.fi-desc').value.toLowerCase().includes('residu'))r.querySelector('.fi-price').value=String(n)});$('#setWastePrice').textContent=`Precio residuos: ${n.toFixed(2).replace('.',',')} €/m³`;calc()};
+ const saveInv=()=>{const totals=calc();inv={...inv,number:$('#invNo').value.trim(),date:$('#invDate').value,vat:$('#invVat').value,status:$('#invStatus').value,notes:$('#invNotes').value.trim(),lines:getLines(),base:totals.base,total:totals.total,updatedAt:new Date().toISOString()};if(isOld||state.invoices.some(x=>x.id===inv.id))state.invoices=state.invoices.map(x=>x.id===inv.id?inv:x);else state.invoices.push(inv);save();return inv};
+ $('#invSave').onclick=()=>{saveInv();toast('Factura guardada');openAutoclaveInvoice(s,inv.id)};$('#invCancel').onclick=renderService;if($('#invPrint'))$('#invPrint').onclick=()=>printInvoice(saveInv());if($('#invShare'))$('#invShare').onclick=()=>{const x=saveInv();shareDocument({title:'Factura',text:`Factura ${x.number||''} · ${s.client?.name||''} · Total ${money(Number(x.total)||0)}`,filename:`${String(x.number||'factura').replaceAll(' ','_')}.txt`})}
+}
+
+const _openInvoiceFormV51=openInvoiceForm;
+openInvoiceForm=function(id=''){
+ const i=state.invoices.find(x=>x.id===id);const s=i?state.services.find(x=>x.id===i.serviceId):null;
+ if(i&&s?.type==='autoclave'&&Array.isArray(i.lines))return openAutoclaveInvoice(s,id);
+ return _openInvoiceFormV51(id);
+};
+
+printInvoice=function(i){
+ if(!i)return;const c=state.clients.find(x=>x.id===i.clientId),s=state.services.find(x=>x.id===i.serviceId),vat=Number(i.vat)||0;
+ if(Array.isArray(i.lines)){
+  const rows=i.lines.map((x,n)=>{const q=num(x.quantity)||0,p=num(x.price)||0;return `<tr><td>${n+1}</td><td>${esc(x.description||'')}</td><td>${esc(x.quantity||'')} ${esc(x.unit||'')}</td><td>${money(p)}</td><td>${money(q*p)}</td></tr>`}).join('');const base=i.lines.reduce((a,x)=>a+(num(x.quantity)||0)*(num(x.price)||0),0);
+  return printDoc(i.status==='EMITIDA'?'FACTURA':'BORRADOR DE FACTURA',`${companyHeaderHtml()}${i.status!=='EMITIDA'?'<div class="draft">BORRADOR</div>':''}<div class="doc-grid"><div><b>Cliente:</b> ${esc(c?.name||s?.client?.name||'')}<br><b>CIF/NIF:</b> ${esc(c?.taxId||s?.client?.taxId||'')}<br><b>Dirección:</b> ${esc([c?.address||s?.client?.address,c?.postalCode||s?.client?.postalCode,c?.province||s?.client?.province].filter(Boolean).join(' · '))}</div><div><b>N.º:</b> ${esc(i.number||'')}<br><b>Fecha:</b> ${esc(i.date||'')}<br><b>N.º hoja:</b> ${esc(s?.number||'')}<br><b>N.º albarán:</b> ${esc(s?.data?.transport?.number||'')}</div></div><h2>Conceptos</h2><table><tr><th>Nº</th><th>Descripción</th><th>Cantidad</th><th>Precio</th><th>Importe</th></tr>${rows}</table><div class="tot"><p>Base imponible: <b>${money(base)}</b></p><p>IVA ${vat}%: <b>${money(base*vat/100)}</b></p><p>Total factura: <b>${money(base*(1+vat/100))}</b></p></div>${c?.paymentMethod?`<p><b>Forma de pago:</b> ${esc(c.paymentMethod)}${c.iban?` · IBAN ${esc(maskIban(c.iban))}`:''}</p>`:''}${i.notes?`<p class="note">${esc(i.notes)}</p>`:''}`)
+ }
+ const base=Number(i.base)||0;return printDoc(i.status==='EMITIDA'?'FACTURA':'BORRADOR DE FACTURA',`${companyHeaderHtml()}${i.status!=='EMITIDA'?'<div class="draft">BORRADOR</div>':''}<h2>${esc(c?.name||'Cliente')}</h2><p>${esc(c?.taxId||'')}<br>${esc([c?.address,c?.postalCode,c?.province].filter(Boolean).join(' · '))}</p><p><b>N.º:</b> ${esc(i.number||'')} · <b>Fecha:</b> ${esc(i.date||'')}</p><table><tr><th>Concepto</th><th>Base</th></tr><tr><td>${esc(i.concept||'Servicio')}</td><td>${money(base)}</td></tr></table><div class="tot"><p>Base: <b>${money(base)}</b></p><p>IVA ${vat}%: <b>${money(base*vat/100)}</b></p><p>Total: <b>${money(base*(1+vat/100))}</b></p></div>`)
+};
+
+
 if(window.MHSOffline){
  MHSOffline.loadState().then(saved=>{if(saved&&Array.isArray(saved.services)){const localStamp=Math.max(0,...(state.services||[]).map(x=>Date.parse(x.updatedAt)||0));const idbStamp=Math.max(0,...saved.services.map(x=>Date.parse(x.updatedAt)||0));if(idbStamp>localStamp){state=saved;try{db.set(state)}catch{};renderDashboard()}}}).catch(()=>{});
 }

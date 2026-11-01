@@ -1,0 +1,15 @@
+MHS PILOTO v52 · AUTOCLAVE CLÁSICO
+
+- Hoja de Autoclave con formato de toma de datos más parecido a la app antigua.
+- Sin campo Técnico en Autoclave.
+- Cliente sincroniza CIF/NIF, dirección, CP, provincia, teléfono, email y contacto.
+- Contenido de humedad y clase de uso.
+- Parámetros del ciclo: vacío inicial, vacío constante, pulverización en vacío, pulverización vacío decreciente y secado.
+- Nombre de producto + listo al uso.
+- Una sola foto del material.
+- Hoja de tratamiento imprimible/PDF independiente.
+- Albarán independiente, sin precios, con varias líneas.
+- Recogida: empresa, matrícula, chófer, DNI, firma obligatoria y sello opcional.
+- Factura independiente, con varias líneas y gestión de residuos a 0,52 €/m³ configurable.
+- Conserva la regla de m³ propios a facturar, truncados a 4 decimales sin redondear.
+- Mantiene base v51: clientes, empresa, offline, recuperación y resto de módulos sin cambios de diseño todavía.
