@@ -1,0 +1,9 @@
+MHS Piloto v52.7 · Mobiliario
+
+- Plantillas maestras A4 para Hoja de Servicio, Albarán y Factura de Mobiliario.
+- Todos los campos permanecen visibles aunque estén vacíos.
+- Hoja de Servicio con tabla de mobiliario/material, servicio, tratamiento, foto, documentación, estado general, observaciones y Director Técnico.
+- Albarán sin precios, con transporte y firma obligatoria al finalizar.
+- Al finalizar el albarán se genera una factura de Mobiliario en borrador.
+- Factura con plantilla fija A4, conceptos y datos de pago.
+- Vista previa e impresión usan la misma plantilla.
