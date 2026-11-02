@@ -1,0 +1,7 @@
+v52.5 · PDF EXACTO
+
+- Vista previa y PDF usan exactamente la misma maqueta A4.
+- Se conservan ancho 200 mm, alto útil 287 mm y padding en impresión.
+- Se fuerzan colores/fondos en impresión.
+- Hoja de Servicio, Albarán y Factura conservan cajas y campos vacíos.
+- Una página A4 mientras el contenido normal quepa; líneas extra pueden continuar.
