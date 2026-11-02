@@ -1,0 +1,4 @@
+v52.14
+- Hoja de Servicio de Autoclave reconstruida como plantilla A4 rígida 1:1 según visual maestra aprobada.
+- Sin cambios en Albarán ni Factura.
+- Una sola página A4 con geometría fija, cajas alineadas y campos visibles aunque estén vacíos.

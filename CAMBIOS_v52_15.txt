@@ -1,0 +1,1 @@
+v52.15 — Hoja de Servicio Autoclave reconstruida como lienzo A4 de posiciones fijas en milímetros siguiendo la visual maestra aprobada. Sin cambios en Albarán ni Factura.

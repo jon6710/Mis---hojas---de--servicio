@@ -1,0 +1,12 @@
+MHS PILOTO v52.2 · AUTOCLAVE CLÁSICO APROBADO
+
+- Base funcional conservada con recuperación, clientes, offline y resto de módulos.
+- Autoclave: cliente seleccionado por ID y ficha completa sincronizada.
+- Hoja de servicio estilo clásico: material, humedad, clase de uso, servicio, ciclo, producto, documentación, entrada/salida, una foto y observaciones.
+- Director Técnico: nombre, firma y sello desde Empresa; firma+sello juntos en el mismo cajón documental.
+- Albarán separado, sin precios, con varias líneas de conceptos/material.
+- Albarán: empresa que recoge, matrícula, nombre chófer opcional, DNI manuscrito opcional, firma transportista obligatoria, sello transportista opcional.
+- Factura separada, con varias líneas, descuentos, IVA 21/10 y gestión de residuos por defecto.
+- Gestión de residuos: 0,52 €/m³ inicial, editable y persistente.
+- Empresa: texto fijo configurable para observaciones de facturas.
+- Responsive reforzado para PC, Mac, tablet y móvil.
