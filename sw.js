@@ -1,4 +1,4 @@
-const CACHE='mhs-v51-recuperacion-auto';
+const CACHE='mhs-v52-7-mobiliario';
 const ASSETS=[
   './','./index.html','./styles.css','./app.js','./offline-sync.js','./manifest.json',
   './icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'
