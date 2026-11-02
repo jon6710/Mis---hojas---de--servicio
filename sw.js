@@ -1,4 +1,4 @@
-const CACHE='mhs-v52-8';
+const CACHE='mhs-v52-11';
 const ASSETS=[
   './','./index.html','./styles.css','./app.js','./offline-sync.js','./manifest.json',
   './icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'
