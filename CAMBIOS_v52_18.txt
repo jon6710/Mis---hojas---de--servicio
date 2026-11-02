@@ -1,0 +1,1 @@
+v52.18 — Hoja Autoclave: plantilla maestra como imagen A4 física 210x297 mm en (0,0), sin background CSS ni reescalado.
