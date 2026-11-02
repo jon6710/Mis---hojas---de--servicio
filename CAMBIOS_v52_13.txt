@@ -1,0 +1,4 @@
+v52.13
+- Impresión A4 a escala 1:1: eliminado el reescalado automático que encogía las plantillas.
+- Hoja de Servicio, Albarán y Factura mantienen la geometría rígida aprobada.
+- Ajuste leve de tipografía para corresponder con la visual maestra.

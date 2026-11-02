@@ -1,0 +1,10 @@
+MHS PILOTO v52.4 — Documentos Autoclave exactos
+
+- Hoja de Servicio recreada según visual aprobada.
+- Albarán entrada/salida recreado según visual aprobada, sin precios.
+- Factura recreada según visual aprobada.
+- Los campos vacíos permanecen visibles.
+- Director técnico: firma y sello en el mismo cajón.
+- Firma transportista obligatoria; DNI manuscrito opcional.
+- Diseño optimizado para una sola página A4 en condiciones normales.
+- Si existen muchas líneas de material/conceptos, el documento puede continuar en otra página sin cortar filas.

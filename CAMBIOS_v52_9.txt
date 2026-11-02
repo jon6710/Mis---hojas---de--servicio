@@ -1,0 +1,5 @@
+v52.9
+- Vista previa y PDF usan la misma geometría A4 rígida.
+- Eliminado el reflow responsive de documentos.
+- En móvil la plantilla solo se escala visualmente; no se reorganiza.
+- Al imprimir se elimina el escalado y se conserva A4 210x297 mm.

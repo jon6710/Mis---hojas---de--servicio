@@ -1,0 +1,1 @@
+v52.19: ajuste exclusivo de la columna derecha de la Hoja de Servicio de Autoclave. Servicio, Parámetros y Documentación alineados al patrón maestro. Overlays transparentes para no tapar ni alterar las cajas de la plantilla gráfica. Sin cambios en el resto del diseño o lógica.

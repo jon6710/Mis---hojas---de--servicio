@@ -1,0 +1,1 @@
+v52.20: ajuste exclusivo de altura en Hoja de Servicio de Autoclave. Se mantiene exactamente el ancho y la alineación horizontal de v52.19; se aumenta la ocupación vertical global un 5,5% mediante una única transformación de toda la plantilla y sus datos, centrada verticalmente. Sin cambios en Albarán, Factura ni lógica de negocio.
