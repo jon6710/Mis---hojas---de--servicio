@@ -1,0 +1,5 @@
+v52.10
+- Corrige impresión de documentos maestros a una sola página A4 con contenido normal.
+- Vista previa y PDF usan la misma geometría.
+- Escalado uniforme automático antes de imprimir, sin recolocar cajas.
+- Solo documentos con muchas líneas (long-lines) pueden continuar en más de una página.

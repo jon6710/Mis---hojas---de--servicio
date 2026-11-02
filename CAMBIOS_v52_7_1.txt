@@ -1,0 +1,4 @@
+v52.7.1
+- Corrige fallo de arranque: el bloque de Mobiliario se integra dentro del núcleo de la app.
+- Mantiene v52.6 como base y las plantillas A4 de Mobiliario.
+- Cache-busting de recursos y nueva caché de service worker.

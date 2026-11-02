@@ -1,0 +1,6 @@
+v52.3 · Corrección Autoclave
+
+- Eliminado el campo duplicado de Albarán de entrada: se usa una sola vez el N.º de albarán del cliente.
+- La Hoja de Servicio reutiliza ese número automáticamente en Entrada y salida de madera.
+- Corregida la maquetación de impresión/PDF A4 para que la Hoja de Servicio quepa en una sola página cuando el contenido normal lo permite.
+- Reducción solo en impresión de márgenes, tipografía y foto; la vista previa conserva el diseño aprobado.
