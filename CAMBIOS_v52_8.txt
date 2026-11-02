@@ -1,0 +1,5 @@
+MHS Piloto v52.8
+
+- Base: versión v52.7.1.1 que arranca correctamente.
+- Preparación de plantillas aprobadas de Autoclave.
+- Identificador de versión y caché actualizado para pruebas aisladas.

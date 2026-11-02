@@ -1,0 +1,5 @@
+v52.17
+- Corrige caché antigua v52.11.
+- Plantilla maestra Autoclave con nombre versionado.
+- Añade plantilla maestra a caché offline.
+- Solo cambia Hoja de Servicio Autoclave.
