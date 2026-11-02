@@ -1,0 +1,8 @@
+v52.6 · Plantillas maestras A4 Autoclave
+
+- Hoja de Servicio, Albarán y Factura usan la misma maqueta en vista previa e impresión.
+- A4 físico 210 × 297 mm, sin margen @page añadido por la app.
+- Todos los bloques, filas y campos permanecen visibles aunque estén vacíos.
+- Albarán puede previsualizarse/imprimirse sin firma para revisar la plantilla.
+- Firma obligatoria al compartir/finalizar el albarán.
+- Con contenido normal se prioriza una sola página A4; muchas líneas pueden continuar.
