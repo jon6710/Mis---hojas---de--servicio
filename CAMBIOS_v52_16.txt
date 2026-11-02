@@ -1,0 +1,1 @@
+v52.16 — Hoja de Servicio de Autoclave usa la visual maestra aprobada como fondo A4 exacto; solo se superponen los datos variables. Sin cambios en Albarán ni Factura.
