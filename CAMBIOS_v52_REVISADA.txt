@@ -1,0 +1,18 @@
+MHS PILOTO v52 REVISADA - AUTOCLAVE
+Base: v51 estable.
+
+Cambios limitados a Autoclave:
+- Eliminado Técnico de la toma de datos de Autoclave.
+- Cliente: sincroniza CIF/NIF, contacto, teléfono, dirección, CP, provincia y email desde Clientes.
+- Una sola foto del material.
+- Contenido de humedad y clase de uso.
+- Nombre del producto + Listo al uso / No listo al uso.
+- Parámetros del ciclo: vacío inicial, vacío constante, pulverización en vacío, pulverización vacío decreciente y secado.
+- m3 a facturar = nuestra medición, truncada a 4 decimales sin redondear.
+- Gestión de residuos configurable, valor inicial 0,52 EUR/m3.
+- Hoja de tratamiento PDF separada.
+- Albarán separado, sin precios y con varias líneas de conceptos.
+- Albarán: empresa que recoge y matrícula; nombre de chófer y DNI opcionales; firma obligatoria; sello opcional.
+- Borrador de facturación separado con tratamiento + gestión de residuos e IVA 21%.
+
+Sin cambios intencionados en Madera in situ, DDD, Mobiliario, Termitas, Clientes, Empresa, recuperación ni lógica offline.
