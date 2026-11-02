@@ -1,0 +1,5 @@
+v52.1 · Corrección selector de clientes en Autoclave
+- Selector real por ID desde la base de clientes.
+- Carga automática de ficha completa al seleccionar.
+- Conserva taxId, dirección, CP, provincia, teléfono, email, contacto, forma de pago e IBAN dentro de la hoja.
+- Nombre y DNI del chófer siguen opcionales; firma del albarán obligatoria.
