@@ -1,0 +1,6 @@
+v52.13 · Plantillas A4 rígidas y alineadas
+- Hoja de Servicio, Albarán y Factura usan rejilla vertical fija A4.
+- Cajas alineadas y alturas cerradas para ocupar la página como las visuales aprobadas.
+- Centrado horizontal estable en impresión.
+- Una sola página con contenido normal.
+- Sin cambios de lógica ni de datos.
