@@ -1,0 +1,20 @@
+RAMA DE PRUEBA: piloto-v53-documentos-a4
+
+Base: MHS v51 estable. NO instalar sobre producción sin verificar aislamiento.
+
+Novedades:
+- Aplicación v51 completa (Autoclave, Mobiliario, Madera in situ, DDD y Termitas).
+- Mobiliario: selector Tratamiento realizado con AUTOCLAVE o INSITU GEL.
+- Menú de referencias: seis PDF aprobados/de comprobación A4.
+- Almacenamiento local separado de v51 (mhs_pilot_v53_pruebas_aisladas).
+- Caché PWA con nombre propio.
+
+NO IMPLEMENTADO TODAVÍA:
+- Los PDF de referencia NO sustituyen la impresión dinámica antigua.
+- Validación cruzada de fotos, sello, firmas e IVA con datos reales.
+- Conexión aislada a Cloudflare: si lo tienes configurado, NO introduzcas datos reales de clientes en pruebas sin verificar que la sincronización apunta a un entorno de prueba.
+- Integración definitiva de las tres hojas de cada módulo.
+
+ATENCIÓN A GITHUB PAGES: crear una rama NO crea una URL de vista previa automáticamente. NO cambies Settings > Pages > Branch a la rama piloto; eso sustituiría la web pública. Publicar una vista de prueba exige una URL de despliegue independiente, por ejemplo un segundo repositorio con GitHub Pages o Cloudflare Pages Preview.
+
+INSTRUCCIONES: descomprime y sube su CONTENIDO a la raíz de la rama piloto-v53-documentos-a4 (sin carpeta envolvente). En GitHub, no modificar main ni la configuración actual de Pages.
