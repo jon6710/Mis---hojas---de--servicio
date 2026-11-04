@@ -1,9 +1,9 @@
 (()=>{
 'use strict';
-const DB_NAME='mhs_offline_v44';
+const DB_NAME='mhs_offline_v54_ensayos';
 const DB_VERSION=2;
 const Q='queue', B='blobs', S='state';
-const CFG_KEY='mhs_cloudflare_v46_config';
+const CFG_KEY='mhs_cloudflare_v54_ensayos_config';
 let dbp;
 const listeners=new Set();
 let syncing=false;

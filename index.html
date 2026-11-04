@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Mis Hojas">
   <meta name="description" content="Mis Hojas de Servicio · Piloto integrado">
-  <title>Mis Hojas de Servicio · Piloto v51 · Empresa y documentos</title>
+  <title>Mis Hojas de Servicio · PILOTO COMPLETO v54 · Pruebas</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="stylesheet" href="styles.css">
@@ -29,19 +29,20 @@
         <button class="side-link" data-area="facturacion">€ <span>Facturación</span></button>
         <button class="side-link" data-area="presupuestos">🧾 <span>Presupuestos</span></button>
         <button class="side-link" data-area="documentos">▱ <span>Documentos</span></button>
+        <button class="side-link" id="btnDocsPilot" type="button">📄 <span>Plantillas A4 de prueba</span></button>
         <button class="side-link" id="btnClients">👥 <span>Clientes</span></button>
         <button class="side-link" id="btnProducts">🧴 <span>Productos</span></button>
         <button class="side-link" id="btnSettings">⚙ <span>Empresa / copias</span></button>
         <button class="side-link" id="btnExit">↪ <span>Salir</span></button>
       </nav>
-      <div class="side-foot"><strong>Piloto v51</strong><small>Empresa · Sello · Firma · Offline</small></div>
+      <div class="side-foot"><strong>Piloto v54</strong><small>Empresa · Sello · Firma · Offline</small></div>
     </aside>
     <section class="workspace">
       <header class="topbar no-print">
         <div><strong>Piloto operativo integrado</strong><small>Servicios, documentación, facturación y certificados</small></div>
-        <div class="topactions"><button class="sync-status" id="syncStatusBtn" type="button" aria-label="Estado de sincronización"><span id="syncDot">●</span><span id="syncText">Preparando offline…</span></button><button class="btn ghost install-app-btn" id="installAppBtn" type="button" hidden>Instalar app</button><span class="pilot-chip">PILOTO v51 · PRUEBA</span></div>
+        <div class="topactions"><button class="sync-status" id="syncStatusBtn" type="button" aria-label="Estado de sincronización"><span id="syncDot">●</span><span id="syncText">Preparando offline…</span></button><button class="btn ghost install-app-btn" id="installAppBtn" type="button" hidden>Instalar app</button><span class="pilot-chip">PILOTO v54 · PRUEBA</span></div>
       </header>
-      <div class="pilot-warning no-print">Modo offline activo: puedes trabajar sin cobertura. Los cambios, fotos y documentos quedan guardados en el dispositivo y en cola para su sincronización posterior. Cuando Cloudflare esté configurado, los pendientes se subirán automáticamente al recuperar conexión. Hasta entonces permanecen seguros en este dispositivo; exporta también copias JSON periódicas.</div>
+      <div class="pilot-warning no-print">RAMA v54 DE PRUEBAS: datos guardados aparte; no hay importación automática desde v51. Modo offline activo: puedes trabajar sin cobertura. Los cambios, fotos y documentos quedan guardados en el dispositivo y en cola para su sincronización posterior. Cuando Cloudflare esté configurado, los pendientes se subirán automáticamente al recuperar conexión. Hasta entonces permanecen seguros en este dispositivo; exporta también copias JSON periódicas.</div>
       <main id="app"></main>
     </section>
   </div>
@@ -56,6 +57,7 @@
 
   <script src="offline-sync.js"></script>
   <script src="app.js"></script>
+  <script src="piloto-documentos.js"></script>
   <script>
   (function(){
     const btn=document.getElementById('syncStatusBtn'),dot=document.getElementById('syncDot'),text=document.getElementById('syncText');

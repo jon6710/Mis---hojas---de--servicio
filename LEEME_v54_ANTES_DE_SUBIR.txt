@@ -1,0 +1,17 @@
+MHS PILOTO COMPLETO v54 — PRUEBAS (04-11-2026)
+
+Este ZIP contiene la APP COMPLETA, partiendo de la v51 estable, no solamente PDF.
+Incluye: todos los modulos de v51, clientes, productos, empresa, fotos, facturacion, offline;
+Mobiliario: opciones AUTOCLAVE e INSITU GEL; panel con seis documentos de referencia A4.
+
+IMPORTANTE:
+- Las plantillas de referencia NO estan conectadas aun a la impresion dinamica de la app.
+- NO es una version de produccion ni esta verificada en los dispositivos reales.
+- Los datos locales e IndexedDB de v54 usan claves independientes de v51.
+- No hay recuperacion automatica de datos anteriores; para pruebas debes crear datos o importar copia desde el panel disponible.
+- Cloudflare debe configurarse expresamente si se desea; NO uses el servidor real con pruebas.
+- Si GitHub Pages se sigue sirviendo desde main, subir archivos a otra rama NO crea una URL de pruebas: necesitas publicar en ruta aislada (carpeta separada o sitio propio) o configurar Pages para esa rama, sabiendo que sustituiria la URL publica.
+- No reemplazar main ni la version publicada con este paquete.
+- Para GitHub subir CONTENIDO DESCOMPRIMIDO a la raiz de la rama de pruebas, NO el ZIP como unico archivo.
+
+PRUEBAS PENDIENTES: flujos reales de crear servicios, imprimir PDF dinamico, guardar firmas, numeros y generar facturas.
